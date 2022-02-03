@@ -1,0 +1,38 @@
+<syntax> : <rule> | <syntax> <rule> ;
+
+<rule> : <rule_name> ":" <expression> <line_end>;
+
+<line-end> : ";" | <line-end> ";" ;
+
+<expression> : <list> | <expression> "|" <list> ;
+
+<list> : <term> | <list> <term> ;
+
+<term> : <const> | <rule_name> ;
+
+<rule_name> : "<" <name> ">";
+
+<name> :	<character> |
+			<name> <character>;
+
+<character> :	<letter> | <digit> | <symbol> ;
+
+<letter> :	"A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" |
+			"a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" ;
+
+<symbol> : "_" | "-";
+
+<digit> :	<oct_digit> | "8" | "9" ;
+
+<char> : <character> | <special_char> ;
+
+<const> : "\042" <string> "\042";
+
+<string> :	<char> |
+			<string> <char> ;
+
+<special_char> :	"\134" <octal_digit> | 
+					"\134" <octal_digit> <octal_digit> |
+					"\134" <octal_digit> <octal_digit> <octal_digit> ;
+
+<octal_digit> :	"0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" ;
