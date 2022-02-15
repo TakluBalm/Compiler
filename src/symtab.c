@@ -17,6 +17,6 @@ void SymInsert(symtab_p st, sym_p s){
 	st->insert(s->name, s, st);
 }
 
-sym_p SymSearch(symtab_p st, const char* name){
+sym_p SymSearch(symtab_p st, char* name){
 	return st->search(name, st);
 }

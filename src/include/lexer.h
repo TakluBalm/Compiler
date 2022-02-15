@@ -10,16 +10,33 @@ struct LEXER{
 	bool processed;
 };
 
-typedef struct LEXER* lexer_p;
+struct TOKEN{
+	char* value;
+	enum {
+		TERMINAL,
+		NON_TERMINAL,
+		SEMI_COLON,
+		COLON,
+		OR,
+		END,
+		UNIDENTIFIED_TOK
+	} type;
+	
+};
 
+typedef struct LEXER* lexer_p;
+typedef struct TOKEN* tok_p;
 
 lexer_p init_lexer(file_p f);
+void delLexer(lexer_p lex);
 
-char* lexer_parse_name(lexer_p lex);
-int lexer_parse_digit(lexer_p lex, int base);
-long long int lexer_parse_number(lexer_p lex, int base);
-char* lexer_parse_const(lexer_p lex);
-void lexer_skip_whitespace(lexer_p lex);
-void lexer_advance(lexer_p lex);
+tok_p getTok(char* value, int type);
+tok_p dupTok(tok_p token);
+
+void pushTok(tok_p tok);
+tok_p popTok();
+
+tok_p lexer_next_token(lexer_p lex);
+
 
 #endif

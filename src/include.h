@@ -4,5 +4,6 @@
 #include "../lib/include.h"
 #include "include/lexer.h"
 #include "include/symbol.h"
+#include "include/parser.h"
 
 #endif

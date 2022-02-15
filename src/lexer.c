@@ -1,15 +1,42 @@
 #include "include.h"
 
-#define _SZ(type)	sizeof(type)
+#define OCT	8
+#define DEC	10
+#define HEX	16
 
-bool isLetter(char c){
+tok_p TOK_STACK[1024];
+unsigned int TOK_STACK_POINTER = 0;
+
+void pushTok(tok_p tok){
+	TOK_STACK[TOK_STACK_POINTER++] = tok;
+}
+
+tok_p popTok(){
+	if(TOK_STACK_POINTER > 0){
+		return TOK_STACK[--TOK_STACK_POINTER];
+	}
+	return NULL;
+}
+
+void delLexer(lexer_p lex){
+	if(TOK_STACK_POINTER > 0){
+		while(TOK_STACK_POINTER){
+			tok_p tok = popTok();
+			free(tok->value);
+			free(tok);
+		}
+	}
+	free(lex);
+}
+
+static bool isLetter(char c){
 	if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')){
 		return true;
 	}
 	return false;
 }
 
-bool isDigit(char c, int base){
+static bool isDigit(char c, int base){
 	switch(base){
 		case DEC:{
 			if(c >= '0' && c <= '9')	return true;
@@ -26,55 +53,81 @@ bool isDigit(char c, int base){
 	}
 }
 
-bool isSymbol(char c){
+static bool isSymbol(char c){
 	if(c == '_' || c == '-'){
 		return true;
 	}
 	return false;
 }
 
-bool isCharacter(char c){
+static bool isCharacter(char c){
 	if(isLetter(c) || isDigit(c, DEC) || isSymbol(c)){
 		return true;
 	}
 	return false;
 }
 
-void lexer_advance(lexer_p lex){
+static void lexer_advance(lexer_p lex){
 	lex->current = getcf(lex->file);
 }
 
-void lexer_skip_whitespace(lexer_p lex){
+static void lexer_skip_whitespace(lexer_p lex){
 	while(lex->current == ' ' || lex->current == '\n' || lex->current == '\t' || lex->current == '\r'){
 		lexer_advance(lex);
 	}
 }
 
 lexer_p init_lexer(file_p f){
-	lexer_p lex = malloc(_SZ(*lex));
+	lexer_p lex = malloc(sizeof(*lex));
 	lex->file = f;
 	lex->current = getcf(f);
 	lex->processed = 0;
 	return lex;
 }
 
-char* lexer_parse_name(lexer_p lex){
+tok_p getTok(char* value, int type){
+	tok_p t = malloc(sizeof(*t));
+	t->type = type;
+	t->value = value;
+	return t;
+}
+
+tok_p dupTok(tok_p token){
+	tok_p t = malloc(sizeof(*t));
+	t->type = token->type;
+	char* str = token->value;
+	int len = 0;
+	while(str[len])	len++;
+	t->value = malloc((len+1)*sizeof(char));
+	while(len+1)	t->value[len] = str[len--];
+	return t;
+}
+
+static char* lexer_parse_non_terminal(lexer_p lex){
 	char* value = NULL;
 	int len = 0;
 	lex->processed = false;
 
 	while(isLetter(lex->current) || isSymbol(lex->current)){
-		if(len%20 == 0)	value = realloc(value, (len+20)*_SZ(char));
+		if(len%20 == 0)	value = realloc(value, (len+20)*sizeof(char));
 		value[len++] = lex->current;
 		lexer_advance(lex);
 		lex->processed = true;
 	}
 
-	if(value != NULL)	value[len] = '\0';
-	return value;
+	if(lex->current == '>'){
+		if(value != NULL)	value[len] = '\0';
+		lexer_advance(lex);
+		return value;
+	}
+	else{
+		lex->processed = false;
+		if(value != NULL)	free(value);
+		return NULL;
+	}
 }
 
-int lexer_parse_digit(lexer_p lex, int base){
+static int lexer_parse_digit(lexer_p lex, int base){
 	int dig;
 	lex->processed = false;
 
@@ -99,7 +152,7 @@ int lexer_parse_digit(lexer_p lex, int base){
 	return dig;
 }
 
-long long int lexer_parse_number(lexer_p lex, int base){
+static long long int lexer_parse_number(lexer_p lex, int base){
 	long long int num = 0;
 
 	if(!isDigit(lex->current, base)){
@@ -119,23 +172,9 @@ long long int lexer_parse_number(lexer_p lex, int base){
 	return num;
 }
 
-/*
-	In case of processing failure the lexer_parse_char will give
-	the unprocessed character as return value and keep the lexer
-	pointing to the initial value. In case a character has been
-	processed the lexer after returning points the the next value.
-*/
-
-
-char lexer_parse_char(lexer_p lex){
+static char lexer_parse_char(lexer_p lex){
 	char value = lex->current;
-	long long int before = lex->processed;
-
-
-	if(value != '\"' && value != '\'' && value != EOF){
-		lexer_advance(lex);
-		lex->processed++;
-	}
+	lex->processed = true;
 
 // For escape sequences \ followed by ASCII value in decimal
 	if(value == '\\'){
@@ -146,51 +185,64 @@ char lexer_parse_char(lexer_p lex){
 			value = 8*value + lexer_parse_digit(lex, OCT);
 			count++;
 		}
+		return value;
 	}
 
+	if(value != EOF)	lexer_advance(lex);
 	return value;
 }
 
-char* lexer_parse_const(lexer_p lex){
-	char* value = calloc(1, _SZ(char));
+static char* lexer_parse_terminal(lexer_p lex){
+	char* value = NULL;
 	int len = 0;
-	char cur;
+	char next_char = lex->current;
 
 	while(lex->current != '\"' && lex->current != EOF){
-		cur = lexer_parse_char(lex);
-		value[len++] = cur;
-		value = realloc(value, (len+1)*_SZ(char));
+		if(len%20 == 0)	value = realloc(value, (len+20)*sizeof(char));
+		next_char = lexer_parse_char(lex);
+		value[len++] = next_char;
 	}
 	value[len] = '\0';
 	lexer_advance(lex);
 	return value;
 }
 
-// token_p lexer_next_token(lexer_p lex){
-// 	lexer_skip_whitespace(lex);
-// 	switch(lex->current){
-// 		case '<':{
-// 			lexer_advance(lex);
-// 			char* name = lexer_parse_name(lex);
+tok_p lexer_next_token(lexer_p lex){
+	tok_p tok = popTok();
+	if(tok != NULL){
+		return tok;
+	}
 
-// 			if(lex->current != '>' || name == NULL)	return init_tok(name, TOKEN_ERR);
-// 			lexer_advance(lex);
-// 			return init_tok(name, TOKEN_RULE_NAME);
-// 		}
-// 		case '\"':{
-// 			lexer_advance(lex);
-// 			char* str = lexer_parse_const(lex);
-// 			return init_tok(str, TOKEN_CONST);
-// 		}
-// 		case '|':
-// 		case ';':
-// 		case ':':{
-// 			char* value = calloc(1, _SZ(char));
-// 			*value = lex->current;
-// 			lexer_advance(lex);
-// 			return init_tok(value, TOKEN_PUNC);
-// 		}
-// 		case EOF:	return init_tok(NULL, TOKEN_EOF);
-// 		default:	return init_tok(NULL, TOKEN_ERR);
-// 	}
-// }
+	lexer_skip_whitespace(lex);
+	switch(lex->current){
+		case '<':{
+			lexer_advance(lex);
+			char* value = lexer_parse_non_terminal(lex);
+			if(lex->processed)	return getTok(value, NON_TERMINAL);
+			else				return getTok(NULL, UNIDENTIFIED_TOK);
+		}
+		case ':':
+		case '|':
+		case ';':{
+			char ch = lex->current;
+			char* value = calloc(2, sizeof(char));
+			value[0] = ch;
+			int type = (ch == '|')?(OR):((ch == ';')?(SEMI_COLON):(COLON));
+			tok_p t = getTok(value, type);
+			lexer_advance(lex);
+			return t;
+		}
+		case '\"':{
+			lexer_advance(lex);
+			char* value = lexer_parse_terminal(lex);
+			if(lex->processed)	return getTok(value , TERMINAL);
+			else				return getTok(value, UNIDENTIFIED_TOK);
+		}
+		case EOF:{
+			char* value = calloc(2, sizeof(char));
+			value[0] = '$';
+			return getTok(value, END);
+		}
+	}
+	return getTok(NULL, UNIDENTIFIED_TOK);
+}

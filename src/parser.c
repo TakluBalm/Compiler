@@ -1,22 +1,24 @@
 #include "include.h"
 
-ast_node* parseSyntax(lexer_p lex);
-ast_node* parseRule(lexer_p lex);
-ast_node* parseDef(lexer_p lex);
-ast_node* parseLineEnd(lexer_p lex);
-ast_node* parseList(lexer_p lex);
-ast_node* parseTerm(lexer_p lex);
+static ast_node* parseSyntax(lexer_p lex);
+static ast_node* parseRule(lexer_p lex);
+static ast_node* parseDef(lexer_p lex);
+static ast_node* parseLineEnd(lexer_p lex);
+static ast_node* parseList(lexer_p lex);
+static ast_node* parseTerm(lexer_p lex);
 
-unsigned int DEPTH_COUNT = 0;
-
-void delTree(ast_node* root){
+void delTree(ast_node* root, int mode){
 	if(root == NULL)	return;
 	if(root->type == LEAF){
-		free(root->token->value);
-		free(root->token);
+		if(mode == DEL){
+			free(root->token->value);
+			free(root->token);
+		}else{
+			pushTok(root->token);
+		}
 	}else{
 		for(int i = 0; i < root->numChild; i++){
-			delTree(root->children[i]);
+			delTree(root->children[i], mode);
 		}
 		free(root->children);
 	}
@@ -26,37 +28,31 @@ void delTree(ast_node* root){
 
 ast_node* parser(lexer_p lex){
 	ast_node* tree;
-	DEPTH_COUNT++;
 	tree = parseSyntax(lex);
+	tok_p next_tok = lexer_next_token(lex);
+	if(next_tok->type != END){
+		delTree(tree, PUSH);
+		pushTok(next_tok);
+		tree = NULL;
+	}
 	return tree;
 }
 
 ast_node* parseSyntax(lexer_p lex){
-	DEPTH_COUNT++;
 	ast_node* tree = malloc(sizeof(*tree));
 	tree->type = SYNTAX;
 
 	ast_node* rl = parseRule(lex);
 	if(rl == NULL){
 		free(tree);
-		DEPTH_COUNT--;
 		return NULL;
 	}
-
-	tok_p next_tok = lexer_next_token(lex);
-	if(next_tok->type == END){
-		tree->numChild = 1;
-		tree->children = malloc((tree->numChild)*sizeof(*(tree->children)));
-		tree->children[0] = rl;
-	}
-	pushTok(next_tok);
 
 	ast_node* s = parseSyntax(lex);
 	if(s == NULL){
 		tree->numChild = 1;
 		tree->children = malloc((tree->numChild)*sizeof(tree));
 		tree->children[0] = rl;
-		DEPTH_COUNT--;
 		return tree;
 	}
 
@@ -64,12 +60,10 @@ ast_node* parseSyntax(lexer_p lex){
 	tree->children = malloc((tree->numChild)*sizeof(*(tree->children)));
 	tree->children[0] = rl;
 	tree->children[1] = s;
-	DEPTH_COUNT--;
 	return tree;
 }
 
 ast_node* parseRule(lexer_p lex){
-	DEPTH_COUNT++;
 	ast_node* tree = malloc(sizeof(*tree));
 	tree->type = RULE; 
 
@@ -85,21 +79,18 @@ ast_node* parseRule(lexer_p lex){
 		free(colon);
 		free(nt);
 		free(tree);
-		DEPTH_COUNT--;
 		return NULL;
 	}
 
 	ast_node* def = parseDef(lex);
 	if(def == NULL){
 		free(tree);
-		DEPTH_COUNT--;
 		return NULL;
 	}
 	ast_node* le = parseLineEnd(lex);
 	if(le == NULL){
 		free(tree);
-		delTree(def);
-		DEPTH_COUNT--;
+		delTree(def, PUSH);
 		return NULL;		
 	}
 
@@ -109,19 +100,16 @@ ast_node* parseRule(lexer_p lex){
 	tree->children[1] = colon;
 	tree->children[2] = def;
 	tree->children[3] = le;
-	DEPTH_COUNT--;
 	return tree;
 }
 
 ast_node* parseDef(lexer_p lex){
-	DEPTH_COUNT++;
 	ast_node* tree = malloc(sizeof(*tree));
 	tree->type = DEF;
 
 	ast_node* lt = parseList(lex);
 	if(lt == NULL){
 		free(tree);
-		DEPTH_COUNT--;
 		return NULL;
 	}
 
@@ -133,7 +121,6 @@ ast_node* parseDef(lexer_p lex){
 		tree->numChild = 1;
 		tree->children = malloc(sizeof(ast_node*));
 		tree->children[0] = lt;
-		DEPTH_COUNT--;;
 		return tree;
 	}
 
@@ -142,7 +129,6 @@ ast_node* parseDef(lexer_p lex){
 		tree->numChild = 1;
 		tree->children = malloc(sizeof(ast_node*));
 		tree->children[0] = lt;
-		DEPTH_COUNT--;
 		return tree;
 	}
 
@@ -151,12 +137,10 @@ ast_node* parseDef(lexer_p lex){
 	tree->children[0] = lt;
 	tree->children[1] = or;
 	tree->children[2] = def;
-	DEPTH_COUNT--;
 	return tree;
 }
 
 ast_node* parseLineEnd(lexer_p lex){
-	DEPTH_COUNT++;
 	ast_node* tree = malloc(sizeof(*tree));
 	tree->type = LINE_END;
 
@@ -164,10 +148,10 @@ ast_node* parseLineEnd(lexer_p lex){
 	semi->type = LEAF;
 	semi->token = lexer_next_token(lex);
 	if(semi->token->type != SEMI_COLON){
+		tok_p err_tok = dupTok(semi->token);
 		pushTok(semi->token);
 		free(tree);
 		free(semi);
-		DEPTH_COUNT--;
 		return NULL;
 	}
 
@@ -176,7 +160,6 @@ ast_node* parseLineEnd(lexer_p lex){
 		tree->numChild = 1;
 		tree->children = malloc(tree->numChild*sizeof(tree));
 		tree->children[0] = semi;
-		DEPTH_COUNT--;
 		return tree;
 	}
 
@@ -185,19 +168,16 @@ ast_node* parseLineEnd(lexer_p lex){
 	tree->children = malloc(tree->numChild*sizeof(tree));
 	tree->children[0] = semi;
 	tree->children[1] = le;
-	DEPTH_COUNT--;
 	return tree;
 }
 
 ast_node* parseList(lexer_p lex){
-	DEPTH_COUNT++;
 	ast_node* tree = malloc(sizeof(*tree));
 	tree->type = LIST;
 
 	ast_node* t = parseTerm(lex);
 	if(t == NULL){
 		free(tree);
-		DEPTH_COUNT--;
 		return NULL;
 	}
 
@@ -206,7 +186,6 @@ ast_node* parseList(lexer_p lex){
 		tree->numChild = 1;
 		tree->children = malloc((tree->numChild)*sizeof(tree));
 		tree->children[0] = t;
-		DEPTH_COUNT--;
 		return tree;
 	}
 
@@ -215,12 +194,10 @@ ast_node* parseList(lexer_p lex){
 	tree->children = malloc((tree->numChild)*sizeof(tree));
 	tree->children[0] = t;
 	tree->children[1] = lt;
-	DEPTH_COUNT--;
 	return tree;
 }
 
 ast_node* parseTerm(lexer_p lex){
-	DEPTH_COUNT++;
 	ast_node* tree = malloc(sizeof(*tree));
 	tree->type = TERM;
 
@@ -231,13 +208,11 @@ ast_node* parseTerm(lexer_p lex){
 		pushTok(next->token);
 		free(next);
 		free(tree);
-		DEPTH_COUNT--;
 		return NULL;
 	}
 
 	tree->numChild = 1;
 	tree->children = malloc((tree->numChild)*sizeof(tree));
 	tree->children[0] = next;
-	DEPTH_COUNT--;
 	return tree;
 }

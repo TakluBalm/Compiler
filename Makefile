@@ -14,8 +14,7 @@ main: $(MAIN) $(LIB_FILES)
 	$(CC) $(CFLAGS) $(MAIN) -L. -l$(LIB_NAME) -o main
 
 run: main
-	export LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH
-	$(LD_LIBRARY_PATH) ./main
+	LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH ./main test.txt
 
 clean:	main *.so
 	rm main *.so

@@ -2,7 +2,7 @@
 
 #define CHECK(f, a)	if(f == 0)	return a
 
-bool canRead(file_p f){
+static bool canRead(file_p f){
 	int flags = f->flags;
 	if((flags&O_WRONLY) != 0)	return false;
 	return true;
@@ -38,7 +38,7 @@ file_p openf(const char* filename, char mode){
 	return  f;
 }
 
-char READ_BUF(file_p f){
+static char READ_BUF(file_p f){
 
 	char c;
 
@@ -55,7 +55,7 @@ char READ_BUF(file_p f){
 	return c;
 }
 
-void WRITE_BUF(file_p f, char c){
+static void WRITE_BUF(file_p f, char c){
 	if(f->OUT_BUF_END == BUFSIZ - 1){
 		bufflush(f);
 		f->OUT_BUF_END = 0;

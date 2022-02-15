@@ -20,7 +20,12 @@ typedef struct AST_node{
 	};
 } ast_node;
 
+enum delModes{
+	PUSH,
+	DEL
+};
+
 ast_node* parser(lexer_p lex);
-void delTree(ast_node* root);
+void delTree(ast_node* root, int mode);
 
 #endif
