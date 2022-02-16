@@ -32,6 +32,7 @@ void delLexer(lexer_p lex);
 
 tok_p getTok(char* value, int type);
 tok_p dupTok(tok_p token);
+void delTok(tok_p token);
 
 void pushTok(tok_p tok);
 tok_p popTok();

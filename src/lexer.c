@@ -99,8 +99,17 @@ tok_p dupTok(tok_p token){
 	int len = 0;
 	while(str[len])	len++;
 	t->value = malloc((len+1)*sizeof(char));
-	while(len+1)	t->value[len] = str[len--];
+	while(len+1){
+		t->value[len] = str[len];
+		len--;
+	}
 	return t;
+}
+
+void delTok(tok_p token){
+	if(token == NULL)	return;
+	free(token->value);
+	free(token);
 }
 
 static char* lexer_parse_non_terminal(lexer_p lex){
