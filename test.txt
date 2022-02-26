@@ -2,7 +2,7 @@
 
 <rule> : <rule_name> ":" <definition> <line_end>;
 
-<line-end> : ";" | ";" <line-end> ;
+<line_end> : ";" | ";" <line_end> ;
 
 <definition> : <list> | <list> "|" <definition> ;
 
@@ -12,14 +12,16 @@
 
 <rule_name> : "<" <name> ">";
 
-<name> :	<character> |
-			<name> <character>;
+<name> :	<character>
+		|	<name> <character>;
 
 <character> :	<letter> | <digit> | <symbol> ;
 
+<letter> :	"A-Z" | "a-z";
+
 <symbol> : "_" | "-";
 
-<digit> :	<oct_digit> | "8" | "9" ;
+<digit> :	<octal_digit> | "8" | "9" ;
 
 <char> : <character> | <special_char> ;
 

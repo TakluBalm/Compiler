@@ -13,10 +13,10 @@ struct HashTable{
 	hash_node_p* tb;
 	void (*insert)(char*, void*, htable_p);
 	void* (*search)(char*, htable_p);
-	void (*print)(htable_p);
+	void* (*remove)(char*, htable_p);
 };
 
 void HashTableInit(htable_p ht);
-void DelHTable(htable_p ht);
+void DelHTable(bool freeData, htable_p ht);
 
 #endif

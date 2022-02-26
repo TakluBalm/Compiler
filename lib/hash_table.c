@@ -43,28 +43,33 @@ static void hash_expand(htable_p ht){
 	ht->size = new_size;
 }
 
-static void HASH_PRINT(htable_p ht){
-	int count = 0;
-	for(int i = 0; i < ht->size; i++){
-		printf("%d\n", i);
-		hash_node_p n = ht->tb[i];
-		while(n != NULL){
-			count++;
-			printf("(%d)\tKey: \"%s\"\tPointer to data: %p\n", count, n->key, n->data);
-			n = n->next;
+static void* HASH_REMOVE(char* key, htable_p ht){
+	int i = hash_function(key) % ht->size;
+	void* data = NULL;
+	hash_node_p current, prev = NULL;
+	for(current = ht->tb[i]; current != NULL; current = current->next){
+		if(isEqual(current->key, key)){
+			if(prev == NULL)	ht->tb[i] = current->next;
+			else				prev->next = current->next;
+			data = current->data;
+			ht->stored--;
+			free(current);
+			break;
 		}
+		prev = current;
 	}
+	return data;
 }
 
 static void* HASH_SEARCH(char* key, htable_p ht){
 	if(ht->size == 0)	return NULL;
 	int i = hash_function(key) % ht->size;
 	hash_node_p n = ht->tb[i];
-	while(!isEqual(key, n->key)){
+	while(n != NULL && !isEqual(key, n->key)){
 		n = n->next;
-		if(n == NULL)	return NULL;
 	}
-	return n->key;
+	if(n == NULL)	return NULL;
+	return n->data;
 }
 
 static void HASH_INSERT(char* key, void* data, htable_p ht){
@@ -91,22 +96,20 @@ void HashTableInit(htable_p ht){
 	ht->size = 0;
 	ht->search = HASH_SEARCH;
 	ht->insert = HASH_INSERT;
-	ht->print = HASH_PRINT;
+	ht->remove = HASH_REMOVE;
 	ht->stored = 0;
 	ht->tb = NULL;
 }
 
-void DelHTable(htable_p ht){
+void DelHTable(bool freeData, htable_p ht){
 	for(int i = 0; i < ht->size; i++){
 		hash_node_p n = ht->tb[i];
 		while(n != NULL){
 			hash_node_p temp = n->next;
-			if(n->data != NULL)	free(n->data);
-			free(n->key);
+			if(n->data != NULL && freeData)	free(n->data);
 			free(n);
 			n = temp;
 		}
 	}
 	free(ht->tb);
-	free(ht);
 }

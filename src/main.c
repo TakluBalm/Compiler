@@ -15,11 +15,17 @@ int main(int argc, char** argv){
 	}
 	lexer_p lex = init_lexer(f);
 	ast_node* tree = parser(lex);
-	if(tree == NULL)	printf("Invalid Syntax\n");
-	else{
-		printf("Syntax Valid:\n");
-		printTree(tree, 0);
+	if(tree == NULL){
+		printf("Invalid Syntax\n");
+		err_print();
+	}else if(!checkSymbols(tree)){
+		printf("Invalid Semantics\n");
+		err_print();
 	}
+	else{
+		printf("Syntax Valid\n");
+	}
+	DelHTable(true, &SYMBOL_TABLE);
 	delTree(tree, DEL);
 	delLexer(lex);
 	closef(f);

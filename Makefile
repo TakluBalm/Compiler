@@ -2,7 +2,7 @@ CC=gcc
 LFLAGS=-fPIC -shared -g
 CFLAGS=-g
 LIB_NAME=MyLib
-LIB_FILES=lib/*.c src/lexer.c src/symtab.c src/parser.c
+LIB_FILES=lib/*.c src/lexer.c src/parser.c src/semantic.c
 MAIN=src/main.c
 LD_LIBRARY_PATH=LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH
 
