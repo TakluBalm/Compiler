@@ -1,7 +1,12 @@
-#ifndef SM_H
-#define SM_H
+#ifndef PARSER_H
+#define PARSER_H
 
-#include "lexer.h"
+#include "../include.h"
+
+extern struct PARSE_ERR{
+	char* msg;
+	tok_p token;
+} PARSE_ERR;
 
 typedef struct AST_node{
 	enum types{
@@ -27,5 +32,6 @@ enum delModes{
 
 ast_node* parser(lexer_p lex);
 void delTree(ast_node* root, int mode);
+void err_print();
 
 #endif

@@ -6,19 +6,21 @@ static ast_node* parseDef(lexer_p lex);
 static ast_node* parseLineEnd(lexer_p lex);
 static ast_node* parseList(lexer_p lex);
 static ast_node* parseTerm(lexer_p lex);
-static void err_print();
 
-size_t TOK_CONSUMED = 0;
-
-struct{
-	char* msg;
-	size_t consumedTok;
-	tok_p err_tok;
-} PARSE_ERR;
+struct PARSE_ERR PARSE_ERR;
 
 void err_print(){
-	printf("ERROR while processing %lluth token:\n\t", PARSE_ERR.consumedTok);
-	printf(PARSE_ERR.msg, PARSE_ERR.err_tok->value);
+	printf("ERROR on %llu:%llu\n\t", PARSE_ERR.token->lineNum, PARSE_ERR.token->characterNum);
+	printf(PARSE_ERR.msg);
+}
+
+bool isAhead(tok_p t1, tok_p t2){
+	if(t2 == NULL)	return true;
+	if(t1 == NULL)	return false;
+	if(t1->lineNum < t2->lineNum)	return false;
+	if(t1->lineNum > t2->lineNum)	return true;
+	if(t1->characterNum > t2->characterNum)	return true;
+	return false;
 }
 
 void delTree(ast_node* root, int mode){
@@ -29,7 +31,6 @@ void delTree(ast_node* root, int mode){
 			free(root->token);
 		}else{
 			pushTok(root->token);
-			TOK_CONSUMED--;
 		}
 	}else{
 		for(int i = 0; i < root->numChild; i++){
@@ -45,13 +46,10 @@ ast_node* parser(lexer_p lex){
 	ast_node* tree;
 	tree = parseSyntax(lex);
 	tok_p next_tok = lexer_next_token(lex);
-	TOK_CONSUMED++;
 	if(next_tok->type != END){
 		delTree(tree, PUSH);
 		pushTok(next_tok);
-		TOK_CONSUMED--;
 		tree = NULL;
-		err_print();
 	}
 	return tree;
 }
@@ -87,24 +85,23 @@ ast_node* parseRule(lexer_p lex){
 
 	ast_node* nt = malloc(sizeof(*nt));
 	nt->token = lexer_next_token(lex);
-	TOK_CONSUMED++;
 	nt->type = LEAF;
 	ast_node* colon = malloc(sizeof(*colon));
 	colon->token = lexer_next_token(lex);
-	TOK_CONSUMED++;
 	colon->type = LEAF;
 	if(colon->token->type != COLON || nt->token->type != NON_TERMINAL){
-		TOK_CONSUMED -= 2;
-		if(nt->token->type != NON_TERMINAL && PARSE_ERR.consumedTok < TOK_CONSUMED){
-			delTok(PARSE_ERR.err_tok);
-			PARSE_ERR.err_tok = dupTok(nt->token);
-			PARSE_ERR.consumedTok = TOK_CONSUMED;
-			PARSE_ERR.msg = "Expected a NON_TERMINAL instead of %s\n";
-		}else{
-			delTok(PARSE_ERR.err_tok);
-			PARSE_ERR.err_tok = dupTok(colon->token);
-			PARSE_ERR.consumedTok = TOK_CONSUMED;
-			PARSE_ERR.msg = "Expected a \':\' instead of %s\n";
+		if(nt->token->type != NON_TERMINAL && isAhead(nt->token, PARSE_ERR.token)){
+			delTok(PARSE_ERR.token);
+			PARSE_ERR.token = dupTok(nt->token);
+			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
+			PARSE_ERR.msg = calloc(100, sizeof(char));
+			sprintf(PARSE_ERR.msg,"Expected a NON_TERMINAL instead of %s\n", nt->token->value);
+		}else if(isAhead(colon->token, PARSE_ERR.token)){
+			delTok(PARSE_ERR.token);
+			PARSE_ERR.token = dupTok(colon->token);
+			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
+			PARSE_ERR.msg = calloc(100, sizeof(char));
+			sprintf(PARSE_ERR.msg,"Expected a \':\' instead of %s\n", colon->token->value);
 		}
 		pushTok(nt->token);
 		pushTok(colon->token);
@@ -147,14 +144,14 @@ ast_node* parseDef(lexer_p lex){
 
 	ast_node* or = malloc(sizeof(*or));
 	or->token = lexer_next_token(lex);
-	TOK_CONSUMED++;
 	or->type = LEAF;
 	if(or->token->type != OR){
-		if(PARSE_ERR.consumedTok < --TOK_CONSUMED){
-			delTok(PARSE_ERR.err_tok);
-			PARSE_ERR.err_tok = dupTok(or->token);
-			PARSE_ERR.consumedTok = TOK_CONSUMED;
-			PARSE_ERR.msg = "Expected a | instead of %s\n";
+		if(isAhead(or->token, PARSE_ERR.token)){
+			delTok(PARSE_ERR.token);
+			PARSE_ERR.token = dupTok(or->token);
+			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
+			PARSE_ERR.msg = calloc(100, sizeof(char));
+			sprintf(PARSE_ERR.msg, "Expected a | instead of %s\n", or->token->value);
 		}
 		pushTok(or->token);
 		tree->numChild = 1;
@@ -185,15 +182,14 @@ ast_node* parseLineEnd(lexer_p lex){
 
 	ast_node* semi = malloc(sizeof(*semi));
 	semi->type = LEAF;
-	TOK_CONSUMED++;
 	semi->token = lexer_next_token(lex);
-	TOK_CONSUMED++;
 	if(semi->token->type != SEMI_COLON){
-		if(PARSE_ERR.consumedTok < --TOK_CONSUMED){
-			delTok(PARSE_ERR.err_tok);
-			PARSE_ERR.err_tok = dupTok(semi->token);
-			PARSE_ERR.consumedTok = TOK_CONSUMED;
-			PARSE_ERR.msg = "Expected \';\' instead of %s\n";
+		if(isAhead(semi->token, PARSE_ERR.token)){
+			delTok(PARSE_ERR.token);
+			PARSE_ERR.token = dupTok(semi->token);
+			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
+			PARSE_ERR.msg = calloc(100, sizeof(char));
+			sprintf(PARSE_ERR.msg, "Expected \';\' instead of %s\n");
 		}
 		pushTok(semi->token);
 		free(tree);
@@ -250,13 +246,13 @@ ast_node* parseTerm(lexer_p lex){
 	ast_node* next = malloc(sizeof(*next));
 	next->type = LEAF;
 	next->token = lexer_next_token(lex);
-	TOK_CONSUMED++;
 	if(next->token->type != NON_TERMINAL && next->token->type != TERMINAL){
-		if(PARSE_ERR.consumedTok < --TOK_CONSUMED){
-			delTok(PARSE_ERR.err_tok);
-			PARSE_ERR.err_tok = dupTok(next->token);
-			PARSE_ERR.consumedTok = TOK_CONSUMED;
-			PARSE_ERR.msg = "Expected a Terminal or Non-Terminal instead of %s\n";
+		if(isAhead(next->token, PARSE_ERR.token)){
+			delTok(PARSE_ERR.token);
+			PARSE_ERR.token = dupTok(next->token);
+			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
+			PARSE_ERR.msg = calloc(100, sizeof(char));
+			sprintf(PARSE_ERR.msg, "Expected a Terminal or Non-Terminal instead of %s\n", next->token->value);
 		}
 		pushTok(next->token);
 		free(next);

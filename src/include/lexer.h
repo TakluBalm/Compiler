@@ -1,8 +1,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include "../../lib/include/fio.h"
-#include <stdbool.h>
+#include "../include.h"
 
 struct LEXER{
 	file_p file;
@@ -21,7 +20,8 @@ struct TOKEN{
 		END,
 		UNIDENTIFIED_TOK
 	} type;
-	
+	size_t lineNum;
+	size_t characterNum;
 };
 
 typedef struct LEXER* lexer_p;

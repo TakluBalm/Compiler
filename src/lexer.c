@@ -4,8 +4,10 @@
 #define DEC	10
 #define HEX	16
 
-tok_p TOK_STACK[1024];
+tok_p TOK_STACK[512];
 unsigned int TOK_STACK_POINTER = 0;
+size_t LINE = 1;
+size_t CHAR = 1;
 
 void pushTok(tok_p tok){
 	TOK_STACK[TOK_STACK_POINTER++] = tok;
@@ -69,11 +71,26 @@ static bool isCharacter(char c){
 
 static void lexer_advance(lexer_p lex){
 	lex->current = getcf(lex->file);
+	CHAR++;
 }
 
 static void lexer_skip_whitespace(lexer_p lex){
-	while(lex->current == ' ' || lex->current == '\n' || lex->current == '\t' || lex->current == '\r'){
-		lexer_advance(lex);
+	while(true){
+		switch(lex->current){
+			case '\n':{
+				LINE++;
+				CHAR = 0;
+			}
+			case ' ':
+			case '\t':
+			case '\r':{
+				lexer_advance(lex);
+				break;
+			}
+			default:{
+				return;
+			}
+		}
 	}
 }
 
@@ -103,6 +120,8 @@ tok_p dupTok(tok_p token){
 		t->value[len] = str[len];
 		len--;
 	}
+	t->characterNum = token->characterNum;
+	t->lineNum = token->lineNum;
 	return t;
 }
 
@@ -223,12 +242,20 @@ tok_p lexer_next_token(lexer_p lex){
 	}
 
 	lexer_skip_whitespace(lex);
+
+	size_t line = LINE;
+	size_t charNum = CHAR;
+
 	switch(lex->current){
 		case '<':{
 			lexer_advance(lex);
 			char* value = lexer_parse_non_terminal(lex);
-			if(lex->processed)	return getTok(value, NON_TERMINAL);
-			else				return getTok(NULL, UNIDENTIFIED_TOK);
+			tok_p t;
+			if(lex->processed)	t =  getTok(value, NON_TERMINAL);
+			else				t =  getTok(NULL, UNIDENTIFIED_TOK);
+			t->lineNum = line;
+			t->characterNum = charNum;
+			return t;
 		}
 		case ':':
 		case '|':
@@ -238,19 +265,28 @@ tok_p lexer_next_token(lexer_p lex){
 			value[0] = ch;
 			int type = (ch == '|')?(OR):((ch == ';')?(SEMI_COLON):(COLON));
 			tok_p t = getTok(value, type);
+			t->characterNum = charNum;
+			t->lineNum = line;
 			lexer_advance(lex);
 			return t;
 		}
 		case '\"':{
 			lexer_advance(lex);
 			char* value = lexer_parse_terminal(lex);
-			if(lex->processed)	return getTok(value , TERMINAL);
-			else				return getTok(value, UNIDENTIFIED_TOK);
+			tok_p t;
+			if(lex->processed)	t = getTok(value , TERMINAL);
+			else				t = getTok(value, UNIDENTIFIED_TOK);
+			t->characterNum = charNum;
+			t->lineNum = line;
+			return t;
 		}
 		case EOF:{
 			char* value = calloc(2, sizeof(char));
 			value[0] = '$';
-			return getTok(value, END);
+			tok_p t = getTok(value, END);
+			t->characterNum = charNum;
+			t->lineNum = line;
+			return t;
 		}
 	}
 	return getTok(NULL, UNIDENTIFIED_TOK);
