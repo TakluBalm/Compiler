@@ -2,6 +2,7 @@
 #define HASHTAB_H
 
 #include <stddef.h>
+#define TB_INIT_SIZE 50
 
 typedef struct HashTable* htable_p;
 typedef struct HashTable HashTable;
@@ -16,7 +17,7 @@ struct HashTable{
 	void* (*remove)(char*, htable_p);
 };
 
-void HashTableInit(htable_p ht);
-void DelHTable(bool freeData, htable_p ht);
+struct HashTable HashTableInit();
+struct HashTable DelHTable(bool freeData, struct HashTable ht);
 
 #endif

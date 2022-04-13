@@ -5,104 +5,18 @@ struct HashTable SYMBOL_TABLE;
 size_t MAX_TERMINAL_LEN = 0;
 bool INITIALISED = false;
 
-struct vector{
-	size_t size;
-	size_t capacity;
-	ast_node** arr;
-};
+size_t NUM_TERM = 0;
+size_t NUM_NTERM = 0;
 
-struct vector addNode(ast_node* node, struct vector vec){
-	if(vec.capacity <= vec.size){
-		if(vec.capacity == 0){
-			vec.arr = malloc(sizeof(ast_node*));
-			vec.capacity = 1;
-		}else{
-			vec.arr = realloc(vec.arr, 2*vec.capacity*sizeof(ast_node*));
-			vec.capacity = 2*vec.capacity;
-		}
-	}
-	vec.arr[vec.size++] = node;
-	return vec;
-}
 
-void removeNodeAtIndex(size_t index, struct vector vec){
-	if(index == vec.size - 1){
-		vec.size--;
-		return;
-	}
-	for(int i = index+1; i < vec.size; i++){
-		vec.arr[i - 1] = vec.arr[i];
-	}
-	vec.size--;
-}
-
-size_t findNode(ast_node* node, struct vector vec){
-	size_t i;
-	for(i = 0; i < vec.size; i++){
-		if(vec.arr[i] == node)	break;
-	}
-	return i;
-}
-
-void findAndRemove(ast_node* node, struct vector vec){
-	size_t index = findNode(node, vec);
-	if(index >= vec.size)	return;
-	removeNodeAtIndex(index, vec);
-}
-
-struct vector mergeVec(struct vector v1, struct vector v2){
-	if(v1.arr == NULL || v2.arr == NULL){
-		return (v1.arr == NULL)?v2:v1;
-	}
-	struct vector v;
-	if(v1.capacity >= v1.size + v2.size || v2.capacity >= v1.size + v2.size){
-		struct vector filler;
-		if(v1.capacity >= v1.size + v2.size){
-			v = v1;
-			filler = v2;
-		}else{
-			v = v2;
-			filler = v1;
-		}
-		for(int i = 0; i < filler.size; i++){
-			v.arr[i + v.size] = filler.arr[i];
-		}
-		free(filler.arr);
-		return v;
-	}else{
-		v.size = v1.size + v2.size;
-		v.capacity = v1.capacity + v2.capacity;
-		v.arr = calloc(v.capacity, sizeof(ast_node*));
-		struct vector smallV = (v1.size < v2.size)?v1:v2;
-		struct vector bigV = (smallV.arr == v1.arr)?v2:v1;
-		for(int i = 0; i < bigV.size; i++){
-			if(i < smallV.size)	v.arr[i] = smallV.arr[i];
-			v.arr[i + smallV.size] = bigV.arr[i];
-		}
-		free(v1.arr);
-		free(v2.arr);
-		return v;
-	}
-}
-
-static bool isEqual(char* a, char* b){
-	while(*a != '\0' && *b != '\0'){
-		if(*(a++) != *(b++))	return false;
-	}
-	if(*a == *b)	return true;
-	return false;
-}
-
-static bool eq(tok_p tok1, tok_p tok2){
-	if(tok1->type != tok2->type)	return false;
-	isEqual(tok1->value, tok2->value);
+static inline bool eq(struct symbol* s1, struct symbol* s2){
+	return s1 == s2;
 }
 
 void addSymbol(ast_node* node){
 
 	if(!INITIALISED){
-		HashTableInit(&SYMBOL_BUFF);
-		HashTableInit(&SYMBOL_TABLE);
+		SYMBOL_BUFF = SYMBOL_TABLE = HashTableInit();
 		INITIALISED = true;
 	}
 
@@ -110,6 +24,7 @@ void addSymbol(ast_node* node){
 		struct symbol* sym = malloc(sizeof(*sym));
 		tok_p token = node->token;
 		sym->token = token;
+		sym->first = VecInit();
 
 		switch(token->type){
 			case TERMINAL:{
@@ -121,6 +36,8 @@ void addSymbol(ast_node* node){
 						MAX_TERMINAL_LEN = sym->length;
 					}
 
+					sym->state = NUM_TERM++;
+
 					SYMBOL_TABLE.insert(token->value, sym, &SYMBOL_TABLE);
 					return;
 				}
@@ -130,6 +47,7 @@ void addSymbol(ast_node* node){
 			case NON_TERMINAL:{
 				if(SYMBOL_TABLE.search(token->value, &SYMBOL_TABLE) == NULL){
 					if(SYMBOL_BUFF.search(token->value, &SYMBOL_BUFF) == NULL){
+						sym->state = NUM_NTERM;
 						SYMBOL_BUFF.insert(token->value, sym, &SYMBOL_BUFF);
 						return;
 					}
@@ -148,8 +66,7 @@ void addSymbol(ast_node* node){
 bool defineNT(ast_node* rule){
 
 	if(!INITIALISED){
-		HashTableInit(&SYMBOL_BUFF);
-		HashTableInit(&SYMBOL_TABLE);
+		SYMBOL_BUFF = SYMBOL_TABLE = HashTableInit();
 		INITIALISED = true;
 	}
 
@@ -173,26 +90,25 @@ bool defineNT(ast_node* rule){
 	}
 }
 
-struct symbol* searchSymbol(char* key){
+struct symbol* searchSymbol(tok_p keyTok){
 
 	if(!INITIALISED){
-		HashTableInit(&SYMBOL_BUFF);
-		HashTableInit(&SYMBOL_TABLE);
+		SYMBOL_BUFF = SYMBOL_TABLE = HashTableInit();
 		INITIALISED = true;
 	}
 
-	return SYMBOL_TABLE.search(key, &SYMBOL_TABLE);
+	return SYMBOL_TABLE.search(keyTok->value, &SYMBOL_TABLE);
 }
 
 struct vector getElementsOfType(int type, bool returnFirstOccurence, ast_node* root){
-	struct vector vec;
-	vec.size = 0; vec.capacity = 0; vec.arr = NULL;
+	struct vector vec = VecInit();
 	if(root->type == type){
-		vec = addNode(root, vec);
+		vec = vec.add(root, vec);
 		if(returnFirstOccurence)	return vec;
 	}
+	if(root->type == LEAF)	return vec;
 	for(int i = 0; i < root->numChild; i++){
-	vec = mergeVec(vec, getElementsOfType(type, returnFirstOccurence, root->children[i]));
+		vec = addVec(vec, getElementsOfType(type, returnFirstOccurence, root->children[i]));
 	}
 	return vec;
 }
@@ -200,8 +116,7 @@ struct vector getElementsOfType(int type, bool returnFirstOccurence, ast_node* r
 bool checkSymbols(ast_node* root){
 	
 	if(!INITIALISED){
-		HashTableInit(&SYMBOL_BUFF);
-		HashTableInit(&SYMBOL_TABLE);
+		SYMBOL_BUFF = SYMBOL_TABLE = HashTableInit();
 		INITIALISED = true;
 	}
 	
@@ -224,12 +139,41 @@ bool checkSymbols(ast_node* root){
 			struct symbol* sym = *((void**)SYMBOL_BUFF.tb[i]);
 			PARSE_ERR.token = sym->token;
 			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
-			calloc(100,sizeof(char));
+			PARSE_ERR.msg = calloc(100,sizeof(char));
 			sprintf(PARSE_ERR.msg, "The NON_TERMINAL <%s> has been declared but not defined\n", sym->token->value);
-			DelHTable(true, &SYMBOL_BUFF);
+			SYMBOL_BUFF = DelHTable(true, SYMBOL_BUFF);
 			return false;
 		}
 	}
-	DelHTable(true, &SYMBOL_BUFF);
+	SYMBOL_BUFF = DelHTable(true, SYMBOL_BUFF);
 	return true;
+}
+
+struct vector FIRST(tok_p token){
+	struct symbol* sym = searchSymbol(token);
+	if(sym->first.arr == (void**)sym)	return VecInit();
+	else if(sym->first.arr != NULL)		return sym->first;
+	sym->first.arr = (void*)sym;
+
+	struct vector term_lists = getElementsOfType(LIST, true, sym->rule->children[2]);
+
+	struct vector first = VecInit();
+	for(int i = 0; i < term_lists.size; i++){
+		ast_node* list = term_lists.arr[i];
+		tok_p start = list->children[0]->children[0]->token;
+		switch(start->type){
+			case TERMINAL:{
+				struct symbol* start_sym = searchSymbol(start);
+				size_t index = first.find(start_sym, eq, first);
+				if(index >= first.size) first = first.add(start_sym, first);
+				break;
+			}
+			case NON_TERMINAL:{
+				first = mergeVec(first, FIRST(start), eq, false);
+				break;
+			}
+		}
+	}
+	sym->first = first;
+	return first;
 }

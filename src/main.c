@@ -1,6 +1,7 @@
 #include "include.h"
 
 void printTree(ast_node*, int);
+void printVector(struct vector v);
 
 int main(int argc, char** argv){
 	if(argc < 2){
@@ -23,12 +24,26 @@ int main(int argc, char** argv){
 		err_print();
 	}
 	else{
-		printf("Syntax Valid\n");
+		struct vector rules = getElementsOfType(RULE, false, tree);
+		for(size_t i = 0; i < rules.size; i++){
+			struct vector v = FIRST(((ast_node*)rules.arr[i])->children[0]->token);
+			for(size_t j = 0; j < v.size; j++){
+				printf("%s ", ((struct symbol*)(v.arr[j]))->token->value);
+			}
+			printf("\n");
+		}
 	}
-	DelHTable(true, &SYMBOL_TABLE);
+	SYMBOL_TABLE = DelHTable(true, SYMBOL_TABLE);
 	delTree(tree, DEL);
 	delLexer(lex);
 	closef(f);
+}
+
+void printVector(struct vector v){
+	for(int i = 0; i < v.size; i++){
+		printf("\"%s\" ", ((struct symbol*)v.arr[i])->token->value);
+	}
+	printf("\n");
 }
 
 void printTree(ast_node* tree, int depth){

@@ -1,7 +1,5 @@
 #include "include.h"
 
-#define TB_SIZE 50
-
 struct hash_node{
 	void* data;
 	char* key;
@@ -16,8 +14,8 @@ static bool isEqual(char* a, char* b){
 	return false;
 }
 
-static int hash_function(char* str){
-	unsigned long long int hash = 0;
+static size_t hash_function(char* str){
+	size_t hash = 0;
 	int c;
 	while(c = *str++){
 		hash = ((hash << 5) + hash)^c;
@@ -74,8 +72,8 @@ static void* HASH_SEARCH(char* key, htable_p ht){
 
 static void HASH_INSERT(char* key, void* data, htable_p ht){
 	if(ht->size == 0){
-		ht->size = TB_SIZE;
-		ht->tb = calloc(TB_SIZE, sizeof(*(ht->tb)));
+		ht->size = TB_INIT_SIZE;
+		ht->tb = calloc(TB_INIT_SIZE, sizeof(*(ht->tb)));
 	}
 	double load_factor = (double) (ht->stored)/(ht->size);
 	
@@ -92,18 +90,20 @@ static void HASH_INSERT(char* key, void* data, htable_p ht){
 	ht->stored++;
 }
 
-void HashTableInit(htable_p ht){
-	ht->size = 0;
-	ht->search = HASH_SEARCH;
-	ht->insert = HASH_INSERT;
-	ht->remove = HASH_REMOVE;
-	ht->stored = 0;
-	ht->tb = NULL;
+struct HashTable HashTableInit(){
+	struct HashTable ht;
+	ht.size = 0;
+	ht.search = HASH_SEARCH;
+	ht.insert = HASH_INSERT;
+	ht.remove = HASH_REMOVE;
+	ht.stored = 0;
+	ht.tb = NULL;
+	return ht;
 }
 
-void DelHTable(bool freeData, htable_p ht){
-	for(int i = 0; i < ht->size; i++){
-		hash_node_p n = ht->tb[i];
+struct HashTable DelHTable(bool freeData, struct HashTable ht){
+	for(int i = 0; i < ht.size; i++){
+		hash_node_p n = ht.tb[i];
 		while(n != NULL){
 			hash_node_p temp = n->next;
 			if(n->data != NULL && freeData)	free(n->data);
@@ -111,5 +111,6 @@ void DelHTable(bool freeData, htable_p ht){
 			n = temp;
 		}
 	}
-	free(ht->tb);
+	free(ht.tb);
+	return HashTableInit();
 }
