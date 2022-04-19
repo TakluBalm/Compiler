@@ -289,5 +289,9 @@ tok_p lexer_next_token(lexer_p lex){
 			return t;
 		}
 	}
-	return getTok(NULL, UNIDENTIFIED_TOK);
+	char* value = calloc(2, sizeof(char));
+	value[0] = lex->current;
+	tok = getTok(value, UNIDENTIFIED_TOK);
+	tok->lineNum = line;
+	tok->characterNum = charNum;
 }

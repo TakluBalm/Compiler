@@ -46,6 +46,17 @@ ast_node* parser(lexer_p lex){
 	ast_node* tree;
 	tree = parseSyntax(lex);
 	tok_p next_tok = lexer_next_token(lex);
+	if(next_tok->type == UNIDENTIFIED_TOK){
+		if(isAhead(next_tok, PARSE_ERR.token)){
+			delTok(PARSE_ERR.token);
+			PARSE_ERR.token = dupTok(next_tok);
+			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
+			PARSE_ERR.msg = calloc(100, sizeof(char));
+			sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", next_tok->value);
+		}
+		pushTok(next_tok);
+		return NULL;
+	}
 	if(next_tok->type != END){
 		delTree(tree, PUSH);
 		pushTok(next_tok);
@@ -85,9 +96,32 @@ ast_node* parseRule(lexer_p lex){
 
 	ast_node* nt = malloc(sizeof(*nt));
 	nt->token = lexer_next_token(lex);
+	if(nt->token->type == UNIDENTIFIED_TOK){
+		if(isAhead(nt->token, PARSE_ERR.token)){
+			delTok(PARSE_ERR.token);
+			PARSE_ERR.token = dupTok(nt->token);
+			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
+			PARSE_ERR.msg = calloc(100, sizeof(char));
+			sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", nt->token->value);
+		}
+		pushTok(nt->token);
+		return NULL;
+	}
 	nt->type = LEAF;
 	ast_node* colon = malloc(sizeof(*colon));
 	colon->token = lexer_next_token(lex);
+	if(colon->token->type == UNIDENTIFIED_TOK){
+		if(isAhead(colon->token, PARSE_ERR.token)){
+			delTok(PARSE_ERR.token);
+			PARSE_ERR.token = dupTok(colon->token);
+			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
+			PARSE_ERR.msg = calloc(100, sizeof(char));
+			sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", colon->token->value);
+		}
+		pushTok(colon->token);
+		pushTok(nt->token);
+		return NULL;
+	}
 	colon->type = LEAF;
 	if(colon->token->type != COLON || nt->token->type != NON_TERMINAL){
 		if(nt->token->type != NON_TERMINAL && isAhead(nt->token, PARSE_ERR.token)){
@@ -151,7 +185,11 @@ ast_node* parseDef(lexer_p lex){
 			PARSE_ERR.token = dupTok(or->token);
 			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
 			PARSE_ERR.msg = calloc(100, sizeof(char));
-			sprintf(PARSE_ERR.msg, "Expected a | instead of %s\n", or->token->value);
+			if(or->token->type == UNIDENTIFIED_TOK){
+				sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", or->token->value);
+			}else{
+				sprintf(PARSE_ERR.msg, "Expected a | instead of %s\n", or->token->value);
+			}
 		}
 		pushTok(or->token);
 		tree->numChild = 1;
@@ -189,7 +227,11 @@ ast_node* parseLineEnd(lexer_p lex){
 			PARSE_ERR.token = dupTok(semi->token);
 			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
 			PARSE_ERR.msg = calloc(100, sizeof(char));
-			sprintf(PARSE_ERR.msg, "Expected \';\' instead of %s\n");
+			if(semi->token->type == UNIDENTIFIED_TOK){
+				sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", semi->token->value);
+			}else{
+				sprintf(PARSE_ERR.msg, "Expected \';\' instead of %s\n", semi->token->value);
+			}
 		}
 		pushTok(semi->token);
 		free(tree);
@@ -252,7 +294,11 @@ ast_node* parseTerm(lexer_p lex){
 			PARSE_ERR.token = dupTok(next->token);
 			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
 			PARSE_ERR.msg = calloc(100, sizeof(char));
-			sprintf(PARSE_ERR.msg, "Expected a Terminal or Non-Terminal instead of %s\n", next->token->value);
+			if(next->token->type == UNIDENTIFIED_TOK){
+				sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", next->token->value);
+			}else{
+				sprintf(PARSE_ERR.msg, "Expected a Terminal or Non-Terminal instead of %s\n", next->token->value);
+			}
 		}
 		pushTok(next->token);
 		free(next);

@@ -1,37 +1,68 @@
-<syntax> : <rule> | <rule> <syntax> ;
+<PROGRAM>:	<DECL> | <DEF>;
 
-<rule> : <rule_name> ":" <definition> <line_end>;
+<DECL>:	<VAR_DECL> ";" | <FUNC_HEADER> ";";
 
-<line_end> : ";" | ";" <line_end> ;
+<DEF>:	<FUNC_HEADER> <BLOCK_STMT>;
 
-<definition> : <list> | <list> "|" <definition> ;
+<VAR_DECL>:	<TYPE> <ID> ;
 
-<list> : <term> | <term> <list> ;
+<FUNC_HEADER>:	<TYPE> <ID> "(" <ARG_LIST> ")"
+|				<TYPE> <ID> "(" ")";
 
-<term> : <const> | <rule_name> ;
+<ARG_LIST>:	<VAR_DECL>
+|			<VAR_DECL> "," <ARG_LIST>;
 
-<rule_name> : "<" <name> ">";
+<LINE_END>:	";"
+|			";" <LINE_END>;
 
-<name> :	<character>
-		|	<name> <character>;
+<STMT>:	<AS_STMT>
+|		<CALL_STMT>
+|		<RET_STMT>
+|		<COND_STMT>
+|		<LOOP_STMT>
+|		<BLOCK_STMT> ;
 
-<character> :	<letter> | <digit> | <symbol> ;
+<AS_STMT>:	<ID> "=" <EXPR> ;
 
-<letter> :	"A-Z" | "a-z";
+<CALL_STMT>:	<ID> "(" <EXPR_LIST> ")" ;
 
-<symbol> : "_" | "-";
+<EXPR_LIST>:	<EXPR>
+|			<EXPR> "," <EXPR_LIST> ;
 
-<digit> :	<octal_digit> | "8" | "9" ;
+<EXPR>:	<BOOL_EXPR>
+|		<ARITH_EXPR> ;
 
-<char> : <character> | <special_char> ;
+<COND_STMT>:	<IF> "(" <BOOL_EXPR> ")" <BLOCK_STMT>
+|			<IF> "(" <BOOL_EXPR> ")"<BLOCK_STMT> <ELSE> <BLOCK_STMT> ;
 
-<const> : "\042" <string> "\042";
+<LOOP_STMT>: <WHILE> "(" <BOOL_EXPR> ")" <BLOCK_STMT> ;
 
-<string> :	<char> |
-			<string> <char> ;
+<BLOCK_STMT>: "{""}"
+|			"{" <STMT_LIST> "}" ;
 
-<special_char> :	"\134" <octal_digit> | 
-					"\134" <octal_digit> <octal_digit> |
-					"\134" <octal_digit> <octal_digit> <octal_digit> ;
+<STMT_LIST>:	<STMT>
+|			<STMT> <LINE_END> <STMT_LIST> ;
 
-<octal_digit> :	"0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" ;
+<ARITH_EXPR>:	<FACTOR>
+|		<EXPR> "+" <FACTOR>
+|		<EXPR> "-" <FACTOR> ;
+
+<FACTOR>:	<TERM>
+|		<FACTOR> "*" <TERM>
+|		<FACTOR> "/" <TERM> ;
+
+<TERM>:	<ID>
+|		<NUM>
+|		"(" <EXPR> ")" ;
+
+<ID>:	"[a-zA-Z][a-zA-Z0-9_]*" ;
+
+<NUM>:	"[0-9]*";
+
+<TYPE>: "int" | "char*" ;
+
+<IF>:	"if" ;
+
+<WHILE>: "while" ;
+
+<ELSE>:	"else" ;
