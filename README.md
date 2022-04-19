@@ -9,21 +9,21 @@
 
 2. ### **src** folder consists of implementation specific code.
 	* *lexer.c* : Contains code for implementing a lexer.\
-		A lexer needs to be given a file handle (from *fio.c*). It reads characters from files which it uses to genrate and return tokens. The tokens have the following structure.
+		A lexer needs to be given a file handle (from *fio.c*). It reads characters from files which it uses to generate and return tokens. The tokens have the following structure.
 		```C
 		struct TOKEN{
-		char* value;
-		enum {
-			TERMINAL,
-			NON_TERMINAL,
-			SEMI_COLON,
-			COLON,
-			OR,
-			END,
-			UNIDENTIFIED_TOK
-		} type;
-		size_t lineNum;
-		size_t characterNum;
+			char* value;
+			enum {
+				TERMINAL,
+				NON_TERMINAL,
+				SEMI_COLON,
+				COLON,
+				OR,
+				END,
+				UNIDENTIFIED_TOK
+			} type;
+			size_t lineNum;
+			size_t characterNum;
 		};
 		```
 	* *parser.c* : Contains code for implementing a parser\
