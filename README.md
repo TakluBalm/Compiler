@@ -3,8 +3,8 @@
 ## Structure of the repository
 ---
 1. ### **lib** folder consists of reusable data structure code.
-	* *fio.c* : Contains wrapper for File I/O system calls
-	* *graph.c* : Contains code for the graph data structure. (needs to be improved upon)
+	* *fio.c* : Contains wrapper for File I/O system calls. It has been used for buffered file I/O in our project.
+	* *vector.c* : Contains the code for C++ like vector implementation in C. It helps managing a variable sized array.
 	* *hash_table.c* : Contains code for the adding, removing and searching data in a hash table.
 
 2. ### **src** folder consists of implementation specific code.
@@ -27,7 +27,7 @@
 		};
 		```
 	* *parser.c* : Contains code for implementing a parser\
-		A parser is initialised by passing a lexer which it then uses to obtain tokens. It organises these tokens to create a parse tree. A node of the tree has the following structure.
+		A parser is initialised by passing a lexer which it uses to obtain tokens. It organises these tokens to create a Syntax/Parse Tree. A node of the tree has the following structure.
 		```C
 		struct AST_node{
 			enum types{
@@ -46,8 +46,8 @@
 			};
 		}
 		```
-	* *semantic.c* : It takes the parse tree as input and does some error checking on it. These checks include multiple definition or non-terminals OR a non-terminal declare but not defined.
-	* *main.c* : Contains the main program of our project.
+	* *semantic.c* : It takes the parse tree as input and does some error checking on it. These checks include multiple definition of non-terminals OR a non-terminal declared but not defined. It will contain functions to manipulate and use the Syntax Tree to achieve our final goal of making a state machine to recognize the grammar.
+	* *main.c* : Contains the main program of our project. It brings together the code from other files and integrates them
 
 3. ### **test.txt** consists of a test bnf grammar I have been testing against my code.
 
