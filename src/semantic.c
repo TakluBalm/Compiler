@@ -158,18 +158,19 @@ struct vector FIRST(tok_p token){
 	struct vector term_lists = getElementsOfType(LIST, true, sym->rule->children[2]);
 
 	struct vector first = VecInit();
+	setComparator(&first, eq);
 	for(int i = 0; i < term_lists.size; i++){
 		ast_node* list = term_lists.arr[i];
 		tok_p start = list->children[0]->children[0]->token;
 		switch(start->type){
 			case TERMINAL:{
 				struct symbol* start_sym = searchSymbol(start);
-				size_t index = first.find(start_sym, eq, first);
+				size_t index = first.find(start_sym, first);
 				if(index >= first.size) first = first.add(start_sym, first);
 				break;
 			}
 			case NON_TERMINAL:{
-				first = mergeVec(first, FIRST(start), eq, false);
+				first = mergeVec(first, FIRST(start), false);
 				break;
 			}
 		}

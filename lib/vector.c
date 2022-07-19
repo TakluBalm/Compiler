@@ -1,5 +1,8 @@
 #include "include.h"
 
+static inline bool Default_comparator(void* d1, void* d2){
+	return d1 == d2;
+}
 
 static struct vector VECTOR_Add(void* data, struct vector vec){
 	if(vec.capacity <= vec.size){
@@ -27,12 +30,17 @@ static struct vector VECTOR_Remove(size_t index, struct vector vec){
 	return vec;
 }
 
-static size_t VECTOR_Find(void* data, bool (*isEqual)(void* d1, void*d2), struct vector vec){
+static size_t VECTOR_Find(void* data, struct vector vec){
 	size_t i;
 	for(i = 0; i < vec.size; i++){
-		if(isEqual(vec.arr[i], data))	break;
+		if(vec._comparator(vec.arr[i], data))	break;
 	}
 	return i;
+}
+
+
+void setComparator(struct vector* vec, bool (*_comparator)(void*, void*)){
+	vec->_comparator = _comparator;
 }
 
 struct vector VecInit(){
@@ -41,6 +49,7 @@ struct vector VecInit(){
 	v.arr = NULL;
 	v.add = VECTOR_Add;
 	v.find = VECTOR_Find;
+	v._comparator = Default_comparator;
 	v.remove = VECTOR_Remove;
 	return v;
 }
@@ -84,7 +93,7 @@ struct vector addVec(struct vector v1, struct vector v2){
 	}
 }
 
-struct vector mergeVec(struct vector v1, struct vector v2, bool (*isEqual)(void* d1, void* d2), bool destroy){
+struct vector mergeVec(struct vector v1, struct vector v2, bool destroy){
 	if(v1.arr == NULL || v2.arr == NULL){	//	One is a NULL vector
 		return (v1.arr == NULL)?v2:v1;
 	}
@@ -102,7 +111,7 @@ struct vector mergeVec(struct vector v1, struct vector v2, bool (*isEqual)(void*
 			filler = v1;
 		}
 		for(int i = 0; i < filler.size; i++){
-			if(v.find(filler.arr[i], isEqual, v) >= v.size){
+			if(v.find(filler.arr[i], v) >= v.size){
 				v = v.add(filler.arr[i], v);
 			}
 		}
@@ -112,12 +121,12 @@ struct vector mergeVec(struct vector v1, struct vector v2, bool (*isEqual)(void*
 		v.capacity = v1.capacity + v2.capacity;
 		v.arr = calloc(v.capacity, sizeof(void*));
 		for(int i = 0; i < v1.size; i++){
-			if(v.find(v1.arr[i], isEqual, v) >= v.size){
+			if(v.find(v1.arr[i], v) >= v.size){
 				v = v.add(v1.arr[i], v);
 			}
 		}
 		for(int i = 0; i < v2.size; i++){
-			if(v.find(v2.arr[i], isEqual, v) >= v.size){
+			if(v.find(v2.arr[i], v) >= v.size){
 				v = v.add(v2.arr[i], v);
 			}
 		}
