@@ -83,10 +83,10 @@ bool defineNT(ast_node* rule){
 
 	sym = SYMBOL_TABLE.search(key, &SYMBOL_TABLE);
 	if(sym != NULL){
-		PARSE_ERR.token = token;
-		if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
-		PARSE_ERR.msg = calloc(100, sizeof(char));
-		sprintf(PARSE_ERR.msg, "Double definition of Non-Terminal <%s>. Defined earlier at %llu:%llu\n", token->value, sym->token->lineNum, sym->token->characterNum);
+		char* msg = malloc(100);
+		sprintf(msg, "Double definition of Non-Terminal <%s>. Defined earlier at %llu:%llu\n", token->value, sym->token->lineNum, sym->token->characterNum);
+		bool updated = updateErr(token, msg);
+		if(!updated)	free(msg);
 	}
 }
 

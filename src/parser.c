@@ -14,7 +14,7 @@ void err_print(){
 	printf(PARSE_ERR.msg);
 }
 
-bool isAhead(tok_p t1, tok_p t2){
+static bool isAhead(tok_p t1, tok_p t2){
 	if(t2 == NULL)	return true;
 	if(t1 == NULL)	return false;
 	if(t1->lineNum < t2->lineNum)	return false;
@@ -23,7 +23,20 @@ bool isAhead(tok_p t1, tok_p t2){
 	return false;
 }
 
-void delTree(ast_node* root, int mode){
+bool updateErr(tok_p errTok, char* msg){
+	if(isAhead(errTok, PARSE_ERR.token)){
+		delTok(PARSE_ERR.token);
+		PARSE_ERR.token = dupTok(errTok);
+		if(PARSE_ERR.msg != NULL){
+			free(PARSE_ERR.msg);
+		}
+		PARSE_ERR.msg = msg;
+		return true;
+	}
+	return false;
+}
+
+void delTree(ast_node* root, enum delModes mode){
 	if(root == NULL)	return;
 	if(root->type == LEAF){
 		if(mode == DEL){
@@ -47,13 +60,10 @@ ast_node* parser(lexer_p lex){
 	tree = parseSyntax(lex);
 	tok_p next_tok = lexer_next_token(lex);
 	if(next_tok->type == UNIDENTIFIED_TOK){
-		if(isAhead(next_tok, PARSE_ERR.token)){
-			delTok(PARSE_ERR.token);
-			PARSE_ERR.token = dupTok(next_tok);
-			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
-			PARSE_ERR.msg = calloc(100, sizeof(char));
-			sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", next_tok->value);
-		}
+		char* msg = malloc(100);
+		sprintf(msg, "Unidentified token \"%s\"\n", next_tok->value);
+		bool updated = updateErr(next_tok, msg);
+		if(!updated)	free(msg);
 		pushTok(next_tok);
 		return NULL;
 	}
@@ -97,13 +107,10 @@ ast_node* parseRule(lexer_p lex){
 	ast_node* nt = malloc(sizeof(*nt));
 	nt->token = lexer_next_token(lex);
 	if(nt->token->type == UNIDENTIFIED_TOK){
-		if(isAhead(nt->token, PARSE_ERR.token)){
-			delTok(PARSE_ERR.token);
-			PARSE_ERR.token = dupTok(nt->token);
-			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
-			PARSE_ERR.msg = calloc(100, sizeof(char));
-			sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", nt->token->value);
-		}
+		char* msg = malloc(100);
+		sprintf(msg, "Unidentified token \"%s\"\n", nt->token->value);
+		bool updated = updateErr(nt->token, msg);
+		if(!updated)	free(msg);
 		pushTok(nt->token);
 		return NULL;
 	}
@@ -111,31 +118,26 @@ ast_node* parseRule(lexer_p lex){
 	ast_node* colon = malloc(sizeof(*colon));
 	colon->token = lexer_next_token(lex);
 	if(colon->token->type == UNIDENTIFIED_TOK){
-		if(isAhead(colon->token, PARSE_ERR.token)){
-			delTok(PARSE_ERR.token);
-			PARSE_ERR.token = dupTok(colon->token);
-			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
-			PARSE_ERR.msg = calloc(100, sizeof(char));
-			sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", colon->token->value);
-		}
+		char* msg = malloc(100);
+		sprintf(msg, "Unidentified token \"%s\"\n", colon->token->value);
+		bool updated = updateErr(colon->token, msg);
+		if(!updated)	free(msg);
 		pushTok(colon->token);
 		pushTok(nt->token);
 		return NULL;
 	}
 	colon->type = LEAF;
 	if(colon->token->type != COLON || nt->token->type != NON_TERMINAL){
-		if(nt->token->type != NON_TERMINAL && isAhead(nt->token, PARSE_ERR.token)){
-			delTok(PARSE_ERR.token);
-			PARSE_ERR.token = dupTok(nt->token);
-			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
-			PARSE_ERR.msg = calloc(100, sizeof(char));
-			sprintf(PARSE_ERR.msg,"Expected a NON_TERMINAL instead of %s\n", nt->token->value);
-		}else if(isAhead(colon->token, PARSE_ERR.token)){
-			delTok(PARSE_ERR.token);
-			PARSE_ERR.token = dupTok(colon->token);
-			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
-			PARSE_ERR.msg = calloc(100, sizeof(char));
-			sprintf(PARSE_ERR.msg,"Expected a \':\' instead of %s\n", colon->token->value);
+		if(nt->token->type != NON_TERMINAL){
+			char* msg = malloc(100);
+			sprintf(msg, "Expected a NON_TERMINAL instead of %s\n", nt->token->value);
+			bool updated = updateErr(nt->token, msg);
+			if(!updated)	free(msg);
+		}else{
+			char* msg = malloc(100);
+			sprintf(msg, "Expected a \':\' instead of %s\n", colon->token->value);
+			bool updated = updateErr(colon->token, msg);
+			if(!updated)	free(msg);
 		}
 		pushTok(nt->token);
 		pushTok(colon->token);
@@ -180,17 +182,14 @@ ast_node* parseDef(lexer_p lex){
 	or->token = lexer_next_token(lex);
 	or->type = LEAF;
 	if(or->token->type != OR){
-		if(isAhead(or->token, PARSE_ERR.token)){
-			delTok(PARSE_ERR.token);
-			PARSE_ERR.token = dupTok(or->token);
-			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
-			PARSE_ERR.msg = calloc(100, sizeof(char));
-			if(or->token->type == UNIDENTIFIED_TOK){
-				sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", or->token->value);
-			}else{
-				sprintf(PARSE_ERR.msg, "Expected a | instead of %s\n", or->token->value);
-			}
+		char* msg = malloc(100);
+		if(or->token->type == UNIDENTIFIED_TOK){
+			sprintf(msg, "Unidentified token \"%s\"\n", or->token->value);
+		}else{
+			sprintf(msg, "Expected a | instead of %s\n", or->token->value);
 		}
+		bool updated = updateErr(or->token, msg);
+		if(!updated)	free(msg);
 		pushTok(or->token);
 		tree->numChild = 1;
 		tree->children = malloc(sizeof(ast_node*));
@@ -222,17 +221,14 @@ ast_node* parseLineEnd(lexer_p lex){
 	semi->type = LEAF;
 	semi->token = lexer_next_token(lex);
 	if(semi->token->type != SEMI_COLON){
-		if(isAhead(semi->token, PARSE_ERR.token)){
-			delTok(PARSE_ERR.token);
-			PARSE_ERR.token = dupTok(semi->token);
-			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
-			PARSE_ERR.msg = calloc(100, sizeof(char));
-			if(semi->token->type == UNIDENTIFIED_TOK){
-				sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", semi->token->value);
-			}else{
-				sprintf(PARSE_ERR.msg, "Expected \';\' instead of %s\n", semi->token->value);
-			}
+		char* msg = malloc(100);
+		if(semi->token->type == UNIDENTIFIED_TOK){
+			sprintf(msg, "Unidentified token \"%s\"\n", semi->token->value);
+		}else{
+			sprintf(msg, "Expected \';\' instead of %s\n", semi->token->value);
 		}
+		bool updated = updateErr(semi->token, msg);
+		if(!updated)	free(msg);
 		pushTok(semi->token);
 		free(tree);
 		free(semi);
@@ -289,17 +285,14 @@ ast_node* parseTerm(lexer_p lex){
 	next->type = LEAF;
 	next->token = lexer_next_token(lex);
 	if(next->token->type != NON_TERMINAL && next->token->type != TERMINAL){
-		if(isAhead(next->token, PARSE_ERR.token)){
-			delTok(PARSE_ERR.token);
-			PARSE_ERR.token = dupTok(next->token);
-			if(PARSE_ERR.msg != NULL)	free(PARSE_ERR.msg);
-			PARSE_ERR.msg = calloc(100, sizeof(char));
-			if(next->token->type == UNIDENTIFIED_TOK){
-				sprintf(PARSE_ERR.msg, "Unidentified token \"%s\"\n", next->token->value);
-			}else{
-				sprintf(PARSE_ERR.msg, "Expected a Terminal or Non-Terminal instead of %s\n", next->token->value);
-			}
+		char* msg = malloc(100);
+		if(next->token->type == UNIDENTIFIED_TOK){
+			sprintf(msg, "Unidentified token \"%s\"\n", next->token->value);
+		}else{
+			sprintf(msg, "Expected a Terminal or Non-Terminal instead of %s\n", next->token->value);
 		}
+		bool updated = updateErr(next->token, msg);
+		if(!updated)	free(msg);
 		pushTok(next->token);
 		free(next);
 		free(tree);

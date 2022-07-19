@@ -31,7 +31,8 @@ enum delModes{
 };
 
 ast_node* parser(lexer_p lex);
-void delTree(ast_node* root, int mode);
+void delTree(ast_node* root, enum delModes mode);
+bool updateErr(tok_p errTok, char* msg);
 void err_print();
 
 #endif
