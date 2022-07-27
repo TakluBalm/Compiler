@@ -1,4 +1,6 @@
-# Language_Recognizer:
+# Language_Recognizer
+Parse BNF grammar and form AST
+
 ***
 ## Structure of the repository
 ---
