@@ -102,7 +102,7 @@ lexer_p init_lexer(file_p f){
 	return lex;
 }
 
-tok_p getTok(char* value, int type){
+tok_p getTok(char* value, enum tok_type_t type){
 	tok_p t = malloc(sizeof(*t));
 	t->type = type;
 	t->value = value;
@@ -263,7 +263,7 @@ tok_p lexer_next_token(lexer_p lex){
 			char ch = lex->current;
 			char* value = calloc(2, sizeof(char));
 			value[0] = ch;
-			int type = (ch == '|')?(OR):((ch == ';')?(SEMI_COLON):(COLON));
+			enum tok_type_t type = (ch == '|')?(OR):((ch == ';')?(SEMI_COLON):(COLON));
 			tok_p t = getTok(value, type);
 			t->characterNum = charNum;
 			t->lineNum = line;

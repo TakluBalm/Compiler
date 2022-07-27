@@ -8,27 +8,29 @@ extern struct PARSE_ERR{
 	tok_p token;
 } PARSE_ERR;
 
+enum node_type_t{
+	SYNTAX,
+	RULE,
+	DEF,
+	LINE_END,
+	LIST,
+	TERM,
+	LEAF
+};
+
+enum delModes{
+	PUSH,
+	DEL
+};
+
 typedef struct AST_node{
-	enum types{
-		SYNTAX,
-		RULE,
-		DEF,
-		LINE_END,
-		LIST,
-		TERM,
-		LEAF
-	} type;
+	enum node_type_t type;
 	int numChild;
 	union{
 		struct AST_node** children;
 		tok_p token;
 	};
 } ast_node;
-
-enum delModes{
-	PUSH,
-	DEL
-};
 
 ast_node* parser(lexer_p lex);
 void delTree(ast_node* root, enum delModes mode);

@@ -9,17 +9,19 @@ struct LEXER{
 	bool processed;
 };
 
+enum tok_type_t{
+	TERMINAL,
+	NON_TERMINAL,
+	SEMI_COLON,
+	COLON,
+	OR,
+	END,
+	UNIDENTIFIED_TOK
+};
+
 struct TOKEN{
 	char* value;
-	enum {
-		TERMINAL,
-		NON_TERMINAL,
-		SEMI_COLON,
-		COLON,
-		OR,
-		END,
-		UNIDENTIFIED_TOK
-	} type;
+	enum tok_type_t type;
 	size_t lineNum;
 	size_t characterNum;
 };
@@ -30,7 +32,7 @@ typedef struct TOKEN* tok_p;
 lexer_p init_lexer(file_p f);
 void delLexer(lexer_p lex);
 
-tok_p getTok(char* value, int type);
+tok_p getTok(char* value, enum tok_type_t type);
 tok_p dupTok(tok_p token);
 void delTok(tok_p token);
 

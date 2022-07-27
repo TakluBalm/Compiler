@@ -1,20 +1,23 @@
-CC=gcc
-LFLAGS=-fPIC -shared -g
-CFLAGS=-g
-LIB_NAME=MyLib
-LIB_FILES=lib/*.c src/lexer.c src/parser.c src/semantic.c
-MAIN=src/main.c
+CC = gcc
+LFLAGS = -fPIC -shared -g
+CFLAGS = -g
+LIB_NAME = dataStructures
+LIB_FILES=lib/*.c
+SRC_FILES=src/*.c
 LD_LIBRARY_PATH=LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH
 
-lib: $(LIB_FILES)
-	$(CC) $(LFLAGS) $(LIB_FILES) -o lib$(LIB_NAME).so
+.PHONY := clean run
 
-main: $(MAIN) $(LIB_FILES)
-	make lib;
-	$(CC) $(CFLAGS) $(MAIN) -L. -l$(LIB_NAME) -o main
+lib: $(LIB_FILES)
+	@$(CC) $(LFLAGS) $(LIB_FILES) -o lib$(LIB_NAME).so
+
+main: $(SRC_FILES) $(LIB_FILES)
+	@make lib;
+	@$(CC) $(CFLAGS) $(SRC_FILES) -L. -l$(LIB_NAME) -o main
 
 run: main
-	LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH ./main test.txt
+	@LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH ./main test.txt
 
-clean:	main *.so
-	rm main *.so
+clean: main lib
+	@rm main *.so
+	@touch ${LIB_FILES} ${SRC_FILES}
