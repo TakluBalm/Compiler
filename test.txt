@@ -22,6 +22,8 @@
 |		<LOOP_STMT>
 |		<BLOCK_STMT> ;
 
+<RET_STMT> : "return" <ARITH_EXPR>
+
 <AS_STMT>:	<ID> "=" <EXPR> ;
 
 <CALL_STMT>:	<ID> "(" <EXPR_LIST> ")" ;
@@ -31,6 +33,8 @@
 
 <EXPR>:	<BOOL_EXPR>
 |		<ARITH_EXPR> ;
+
+<BOOL_EXPR>:	<ARITH_EXPR> <ROP> <ARITH_EXPR>;
 
 <COND_STMT>:	<IF> "(" <BOOL_EXPR> ")" <BLOCK_STMT>
 |			<IF> "(" <BOOL_EXPR> ")"<BLOCK_STMT> <ELSE> <BLOCK_STMT> ;

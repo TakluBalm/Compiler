@@ -130,12 +130,12 @@ ast_node* parseRule(lexer_p lex){
 	if(colon->token->type != COLON || nt->token->type != NON_TERMINAL){
 		if(nt->token->type != NON_TERMINAL){
 			char* msg = malloc(100);
-			sprintf(msg, "Expected a NON_TERMINAL instead of %s\n", nt->token->value);
+			sprintf(msg, "Expected a NON_TERMINAL instead of \"%s\"\n", nt->token->value);
 			bool updated = updateErr(nt->token, msg);
 			if(!updated)	free(msg);
 		}else{
 			char* msg = malloc(100);
-			sprintf(msg, "Expected a \':\' instead of %s\n", colon->token->value);
+			sprintf(msg, "Expected a \':\' instead of \"%s\"\n", colon->token->value);
 			bool updated = updateErr(colon->token, msg);
 			if(!updated)	free(msg);
 		}
@@ -186,7 +186,7 @@ ast_node* parseDef(lexer_p lex){
 		if(or->token->type == UNIDENTIFIED_TOK){
 			sprintf(msg, "Unidentified token \"%s\"\n", or->token->value);
 		}else{
-			sprintf(msg, "Expected a | instead of %s\n", or->token->value);
+			sprintf(msg, "Expected a | instead of \"%s\"\n", or->token->value);
 		}
 		bool updated = updateErr(or->token, msg);
 		if(!updated)	free(msg);
@@ -225,7 +225,7 @@ ast_node* parseLineEnd(lexer_p lex){
 		if(semi->token->type == UNIDENTIFIED_TOK){
 			sprintf(msg, "Unidentified token \"%s\"\n", semi->token->value);
 		}else{
-			sprintf(msg, "Expected \';\' instead of %s\n", semi->token->value);
+			sprintf(msg, "Expected \';\' instead of \"%s\"\n", semi->token->value);
 		}
 		bool updated = updateErr(semi->token, msg);
 		if(!updated)	free(msg);
@@ -289,7 +289,7 @@ ast_node* parseTerm(lexer_p lex){
 		if(next->token->type == UNIDENTIFIED_TOK){
 			sprintf(msg, "Unidentified token \"%s\"\n", next->token->value);
 		}else{
-			sprintf(msg, "Expected a Terminal or Non-Terminal instead of %s\n", next->token->value);
+			sprintf(msg, "Expected a Terminal or Non-Terminal instead of \"%s\"\n", next->token->value);
 		}
 		bool updated = updateErr(next->token, msg);
 		if(!updated)	free(msg);
