@@ -1,66 +1,143 @@
-# Language_Recognizer
-Parse BNF grammar and form AST
+# YAY (Yet-Another-Yacc)
+Parse EBNF grammar and generate its corresponding LALR state table
 
 ***
 ## Structure of the repository
 ---
-1. ### **lib** folder consists of reusable data structure code.
-	* *fio.c* : Contains wrapper for File I/O system calls. It has been used for buffered file I/O in our project.
-	* *vector.c* : Contains the code for C++ like vector implementation in C. It helps managing a variable sized array.
-	* *hash_table.c* : Contains code for the adding, removing and searching data in a hash table.
+1. **src** : consists all the code.
+	* *`lexer.cpp`* : Contains code for implementing a lexer.\
+		A lexer needs to be given a file handle `FILE*`. It reads characters from files which it uses to generate and return tokens. The tokens have the following structure.
+		```C++
+		class Token{
+			public:
+			enum Type type;
+			std::string* val = NULL;
 
-2. ### **src** folder consists of implementation specific code.
-	* *lexer.c* : Contains code for implementing a lexer.\
-		A lexer needs to be given a file handle (from *fio.c*). It reads characters from files which it uses to generate and return tokens. The tokens have the following structure.
-		```C
-		struct TOKEN{
-			char* value;
-			enum {
-				TERMINAL,
-				NON_TERMINAL,
-				SEMI_COLON,
-				COLON,
-				OR,
-				END,
-				UNIDENTIFIED_TOK
-			} type;
-			size_t lineNum;
-			size_t characterNum;
+			Token(Type t, std::string* val){
+				type = t;
+				this->val = val;
+			}
+
+			Token(Type t){
+				type = t;
+			}
+
+			Token(){};
 		};
 		```
-	* *parser.c* : Contains code for implementing a parser\
-		A parser is initialised by passing a lexer which it uses to obtain tokens. It organises these tokens to create a Syntax/Parse Tree. A node of the tree has the following structure.
-		```C
-		struct AST_node{
-			enum types{
-				SYNTAX,
-				RULE,
-				DEF,
-				LINE_END,
-				LIST,
-				TERM,
-				LEAF
-			} type;
-			int numChild;
-			union{
-				struct AST_node** children;
-				tok_p token;
-			};
-		}
+		It exposed a Lexer class with following type
+		```C++
+		class Lexer{
+			private:
+
+			FILE* file;
+			char current;
+			bool processed;
+			Token prev;
+			bool consumed = true;
+
+			public:
+			
+			Lexer(FILE* f);
+			Lexer();
+
+			Token peek();
+			void consume();
+
+			void advance();
+			void skipWhiteSpace();
+			std::string parseNonTerminal();
+			int parseDigit(int base);
+			long long int parseNumber(int base);
+			char parseChar();
+			std::string parseTerminal();
+		};
 		```
-	* *semantic.c* : It takes the parse tree as input and does some error checking on it. These checks include multiple definition of non-terminals OR a non-terminal declared but not defined. It will contain functions to manipulate and use the Syntax Tree to achieve our final goal of making a state machine to recognize the grammar.
-	* *main.c* : Contains the main program of our project. It brings together the code from other files and integrates them
+	* *`parser.cpp`* : Contains code for implementing a parser\
+		A parser is initialised by passing a lexer which it uses to obtain tokens. It creates an AST (Abstract Syntax Tree) for the EBNF. The 3 consists of 2 types of nodes
+		- Term (base)
+		```C++
+		class Term : public AstNode {
+			public:
+			enum Type {
+				TERMINAL,
+				NONTERMINAL
+			};
+			const std::string getName() const;
+			Term(enum Type type, const std::string& term);
+			Term();
+			enum Type type() const { return _type; };
+
+			protected:
+			std::string name;
+			enum Type _type;
+		};
+		```
+		- Rule (made up of terms)
+		```C++
+		class Rule : public AstNode {
+			static int _cnt;
+			std::vector<const Term*> terms;
+			int _id;
+			
+			public:
+			Rule();
+			void addTerm(const Term* term);
+			const std::vector<const Term*>& getTerms() const;
+			int id() const;
+			const Term* getTerm(int idx) const;
+			const std::string getName() const;
+		};
+		```
+		The AST looks as follow:
+		```C++
+		class Ast {
+			std::map<std::string, std::vector<Rule*>> rules;
+			std::string _startSymbol;
+
+			public:
+			void addDefinition(const std::string& nt, Rule* rule);
+			const std::vector<Rule*>& getDefinition(const std::string& nt) const;
+			const std::string startSymbol(void) const;
+		};
+		```
+	* *`main.cpp`* : Contains the main program of our project. It brings together the code from other files and integrates them
+	* *`include/`* : Contains relevant header files
 
 3. ### **test.txt** consists of a test bnf grammar I have been testing against my code.
 
-4. ### **Makefile** for the automated build.
+4. ### **CMakeLists.txt** for CMake build.
 
 ***
 ## Build the code
 ---
 Make sure you have GNU make installed before running the command
+```Bash
+mkdir build
+cd build
+cmake -S ../
+make
+./src/main
 ```
-make lib
-make main
+
+## Run the code
+The program will ask for path to EBNF file. Once correct path is provided, it will print the generate BNF rules, map of terminals to corresponding ID and then finally the state transition table
+
+## EBNF Description
+
+- `Terminals` : Any lowercase word is considered a terminal
+- `Non-Terminals` : Any uppercase word is considered a non-terminal
+- `Rule` : A rule is a non-terminal followed by a colon, followed by a description and terminated with a semi-colon. The description is a list of terminals / non-terminals with a modification optinally attached to them.
+- `Modifications`: These are of 3 types:
+	- *Optional* : A list terminals / non-terminals surrounded by `[` `]` are treated as optinal, i.e. they can be matchded or not depending on scenario
+	- *Repeating* : A list terminals / non-terminals surrounded by `{` `}` are treated as repeatable, i.e. they can be matchded zero or more times
+	- *Grouping* : A list terminals / non-terminals surrounded by `(` `)` are treated as grouped, i.e. they are considered as a subrule.
+
+EBNF decription written in this format:
 ```
-This will create the shared library libMyLib.so and the main program. Use `make run` to test **main** against *test.txt*.
+SYNTAX : [SYNTAX] semicolon DEF ;
+DEF : nonterminal colon RULES ;
+RULES : [RULES or] RULE ;
+RULE : [RULE] TERM ;
+TERM : obracket RULES cbracket | obrace RULES cbrace | oparen RULES cparen | nonterminal | terminal ; 
+```

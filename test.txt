@@ -1,5 +1,5 @@
 SYNTAX : [SYNTAX] semi DEF ;
-DEF : nt colon RULES ;
+DEF : nonterminal colon RULES ;
 RULES : [RULES or] RULE ;
 RULE : [RULE] TERM ;
-TERM : obracket RULES cbracket | obrace RULES cbrace | oparen RULES cparen ; 
+TERM : obracket RULES cbracket | obrace RULES cbrace | oparen RULES cparen | nonterminal | terminal ; 
