@@ -1,9 +1,7 @@
 # YAY (Yet-Another-Yacc)
 Parse EBNF grammar and generate its corresponding LALR state table
 
-***
 ## Structure of the repository
----
 1. **src** : consists all the code.
 	* *`lexer.cpp`* : Contains code for implementing a lexer.\
 		A lexer needs to be given a file handle `FILE*`. It reads characters from files which it uses to generate and return tokens. The tokens have the following structure.
@@ -108,9 +106,7 @@ Parse EBNF grammar and generate its corresponding LALR state table
 
 4. ### **CMakeLists.txt** for CMake build.
 
-***
 ## Build the code
----
 Make sure you have GNU make installed before running the command
 ```Bash
 mkdir build
