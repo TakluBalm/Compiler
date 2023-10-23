@@ -1,1 +1,0 @@
-/usr/bin/g++ -g CMakeFiles/main.dir/main.cpp.o CMakeFiles/main.dir/lexer.cpp.o CMakeFiles/main.dir/parser.cpp.o CMakeFiles/main.dir/stateGenerator.cpp.o -o main 
