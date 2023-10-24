@@ -208,6 +208,10 @@ State& StateGenerator::computeClosure(State& kernel){
 			q.pop();
 			continue;
 		}
+		if(sc.rule().getTerm(sc.idx())->type() == Term::TERMINAL){
+			q.pop();
+			continue;
+		}
 
 		set<string> * followSet = new set<string>();
 		int offset = 1;
@@ -249,6 +253,14 @@ void StateGenerator::generateStateTable(){
 
 	for(int i = 0; i < termStore.size(); i++){
 		cout << i << " " << termStore.query(i).getName() << endl;
+	}
+	cout << endl << endl;
+	for(int i = 0; i < termStore.size(); i++){
+		cout << termStore.query(i).getName() << " [";
+		for(auto& str: firstOf(i)){
+			cout << str << ",";
+		}
+		cout << "]\n";
 	}
 
 	StateComponent sc(*_ast.getDefinition(_ast.startSymbol())[0]);
@@ -347,6 +359,7 @@ const set<string> &StateGenerator::firstOf(int id){
 		return firsts[id];
 	}
 	calculated[id] = UNDER_PROCESS;
+	firsts[id].clear();
 
 	const Term &term = termStore.query(id);
 	if(term.type() == Term::TERMINAL){
@@ -386,6 +399,7 @@ const set<string> &StateGenerator::firstOf(int id){
 				epsilon2 = false;
 				break;
 			}
+			firsts[id].erase(EPSILON_STR);
 		}
 		epsilonAssumption = false;
 		epsilon = epsilon | epsilon1 | epsilon2 ;
