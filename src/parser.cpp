@@ -16,10 +16,23 @@ enum Action{
 
 /****** RULE *******/
 
-int Rule::_cnt = 0;
-
 void Rule::addTerm(const Term* term){
+	if(terms.size() != 0){
+		name += " ";
+	}
+	name += term->getName();
 	terms.push_back(term);
+}
+
+void Rule::addTerm(const Term* term, int idx){
+	terms.insert(terms.begin()+idx, term);
+	name.clear();
+	for(auto term : terms){
+		name += term->getName() + " ";
+	}
+	if(name.size() != 0){
+		name.pop_back();
+	}
 }
 
 int Rule::id() const {
@@ -27,16 +40,20 @@ int Rule::id() const {
 }
 
 Rule::Rule(){
-	_id = ++_cnt;
+	static int cnt = 0;
+	_id = ++cnt;
 }
 
-const string Rule::getName() const {
-	string name;
-	for(int i = 0; i < terms.size(); i++){
-		if(i != 0)	name += " ";
-		name += terms[i]->getName();
-	}
+const string &Rule::getName() const {
 	return name;
+}
+
+const Term *Rule::lhs() const{
+	return _lhs;
+}
+
+void Rule::lhs(const Term *_lhs){
+	this->_lhs = _lhs;
 }
 
 const vector<const Term*>& Rule::getTerms() const {
@@ -55,30 +72,37 @@ const Term* Rule::getTerm(int idx) const {
 class Definition : public AstNode {
 	Ast* ast;
 	std::vector<Rule*> rules;
-	std::string lhs;
+	const Term* lhs;
+	string name;
 	
 	public:
 	void addRule(Rule* rule){
-		rules.push_back(rule);
-		if(lhs != ""){
-			ast->addDefinition(lhs, rule);
+		if(lhs != nullptr){
+			rule->lhs(lhs);
 		}
+		if(rules.size() != 0){
+			name += " | ";
+		}
+		name += rule->getName();
+		rules.push_back(rule);
 	}
-	void setLHS(const std::string& nt){
+
+	void setLHS(const Term *nt){
 		lhs = nt;
 		for(auto rule: rules){
-			ast->addDefinition(lhs, rule);
+			rule->lhs(lhs);
 		}
 	}
-	const string getLHS() const {
-		return lhs;
+
+	const Term &getLHS() const {
+		return *lhs;
 	}
-	const std::string getName() const {
-		string name = (lhs != "")?(lhs + ": "):lhs;
-		for(int i = 0; i < rules.size(); i++){
-			if(i != 0)	name += " | ";
-			name += rules[i]->getName();
-		}
+
+	const vector<Rule*>& getRules() const {
+		return rules;
+	}
+
+	const std::string &getName() const {
 		return name;
 	}
 
@@ -89,7 +113,7 @@ class Definition : public AstNode {
 
 /****** TERM ******/
 
-const string Term::getName() const {
+const string &Term::getName() const {
 	return name;
 }
 
@@ -100,20 +124,137 @@ Term::Term(enum Type type, const string& name){
 	this->name = name;
 }
 
+/******* TermStore ********/
+
+bool Ast::TermStore::contains(const Term* term) const {
+	return contains(term->getName());
+}
+
+bool Ast::TermStore::contains(const string& name) const {
+	return ids.find(name) != ids.end();
+}
+
+int Ast::TermStore::query(const Term* term) const {
+	return query(term->getName());
+}
+
+int Ast::TermStore::query(const string& name) const {
+	if(contains(name)){
+		return ids.find(name)->second;
+	}
+	return -1;
+}
+
+const Term& Ast::TermStore::query(int id) const {
+	return *(terms[id]);
+}
+
+int Ast::TermStore::insert(const Term* term){
+	static Term* END = new Term(Term::TERMINAL, "$");
+	static Term* START = new Term(Term::NONTERMINAL, "S'");
+	static bool loaded = false;
+	if(!loaded){
+		loaded = true;
+		insert(END);
+		insert(START);
+	}
+	if(!contains(term)){
+		ids[term->getName()] = ids.size();
+		terms.push_back(term);
+		return ids.size()-1;
+	}
+	return ids[term->getName()];
+}
+
+bool Ast::TermStore::contains(int id) const {
+	return id < terms.size();
+}
+
+int Ast::TermStore::size() const {
+	return terms.size();
+}
+
 /****** AST *******/
 
-void Ast::addDefinition(const string& nt, Rule* rule){
-	rules[nt].push_back(rule);
+bool Ast::addRule(const Rule* rule){
+	if(rule == nullptr || rule->lhs() == nullptr){
+		return false;
+	}
+	ruleStore.insert(rule);
+	return true;
 }
 
-const vector<Rule*>& Ast::getDefinition(const string& nt) const {
-	auto it = rules.find(nt);
-	if(it == rules.end())	return *(new vector<Rule*>());
-	else	return it->second;
+bool Ast::addRules(const vector<Rule*> &rules){
+	for(auto rule: rules){
+		if(rule == nullptr || rule->lhs() == nullptr || rule->lhs() != rules[0]->lhs()){
+			return false;
+		}
+	}
+	ruleStore.insert(rules);
+	return true;
 }
 
-const string Ast::startSymbol() const {
-	return "S'";
+const vector<const Rule*>& Ast::getDefinition(const string& nt) const {
+	return ruleStore.query(nt);
+}
+
+const vector<const Rule*>& Ast::getDefinition(const Term *nt) const {
+	return ruleStore.query(nt);
+}
+
+const string &Ast::startSymbol() const {
+	static string str = "S'";
+	return str;
+}
+
+/****** RULESTORE *********/
+
+void Ast::RuleStore::insert(const Rule* rule){
+	const Term *t = rule->lhs();
+	def[t->getName()].push_back(rule);
+	int id = rule->id();
+	if(v.size() < id+1){
+		v.resize(id+1);
+	}
+	v[id] = rule;
+}
+
+void Ast::RuleStore::insert(const vector<Rule*> &rules){
+	if(rules.size() == 0)	return;
+
+	const Term *t = rules[0]->lhs();
+	auto& vec = def[t->getName()];
+	
+	for(auto rule: rules){
+		vec.push_back(rule);
+		int id = rule->id();
+		if(v.size() < id+1){
+			v.resize(id+1);
+		}
+		v[id] = rule;
+	}
+}
+
+inline const vector<const Rule*> &Ast::RuleStore::query(const Term *term) const {
+	auto name = term->getName();
+	return query(name);
+}
+
+const vector<const Rule*> &Ast::RuleStore::query(const string &name) const {
+	static vector<const Rule*> empty;
+	auto it = def.find(name);
+	if(it == def.end()){
+		return empty;
+	}
+	return it->second;
+}
+
+const Rule &Ast::RuleStore::query(int id) const {
+	return *(v[id]);
+}
+
+int Ast::RuleStore::size() const {
+	return def.size();
 }
 
 /****** TABLES ********/
@@ -249,7 +390,13 @@ void Parser::reduce(int rule){
 		case 9:{
 			Term::Type t = (node->children[0]->token.type == TERMINAL)?Term::Type::TERMINAL:Term::Type::NONTERMINAL;
 			string& name = *node->children[0]->token.val;
-			const Term* term = new Term(t, name);
+			const Term* term;
+			if(ast->termStore.query(name) == -1){
+				term = new Term(t, name);
+				ast->termStore.insert(term);
+			} else {
+				term = &ast->termStore.query(ast->termStore.query(name));
+			}
 
 			mp[node] = term;
 			break;
@@ -291,7 +438,16 @@ void Parser::reduce(int rule){
 
 		case 3:{
 			Definition& def = *(Definition*)(mp[node->children[2]]);
-			def.setLHS(*(node->children[0]->token.val));
+			string &name = *(node->children[0]->token.val);
+			int id = ast->termStore.query(name);
+			const Term* term = (id == -1)?(new Term(Term::NONTERMINAL, name)):&(ast->termStore.query(id));
+
+			def.setLHS(term);
+
+			for(auto rule: def.getRules()){
+				rule->userProvided = true;
+			}
+			ast->addRules(def.getRules());
 
 			mp[node] = &def;
 			break;
@@ -300,9 +456,16 @@ void Parser::reduce(int rule){
 		case 10:{
 			Definition& def = *(Definition*)(mp[node->children[1]]);
 			const string& name = "(" + def.getName() + ")";
-			const Term* term = new Term(Term::NONTERMINAL, name);
-			
-			def.setLHS(term->getName());
+			const Term* term;
+			if(ast->termStore.query(name) == -1){
+				term = new Term(Term::NONTERMINAL, name);
+				ast->termStore.insert(term);
+			} else {
+				term = &ast->termStore.query(ast->termStore.query(name));
+			}
+
+			def.setLHS(term);
+			ast->addRules(def.getRules());
 
 			mp[node] = term;
 			break;
@@ -310,10 +473,17 @@ void Parser::reduce(int rule){
 		case 11:{
 			Definition& def = *(Definition*)(mp[node->children[1]]);
 			const string& name = "[" + def.getName() + "]";
-			const Term* term = new Term(Term::NONTERMINAL, name);
+			const Term* term;
+			if(ast->termStore.query(name) == -1){
+				term = new Term(Term::NONTERMINAL, name);
+				ast->termStore.insert(term);
+			} else {
+				term = &ast->termStore.query(ast->termStore.query(name));
+			}
 
 			def.addRule(new Rule());
-			def.setLHS(term->getName());
+			def.setLHS(term);
+			ast->addRules(def.getRules());
 
 			mp[node] = term;
 			break;
@@ -321,25 +491,45 @@ void Parser::reduce(int rule){
 		case 12:{
 			Definition& def = *(Definition*)(mp[node->children[1]]);
 			const string& name = "{" + def.getName() + "}";
-			const Term* term = new Term(Term::NONTERMINAL, name);
+			const Term* term;
+			if(ast->termStore.query(name) == -1){
+				term = new Term(Term::NONTERMINAL, name);
+				ast->termStore.insert(term);
+			} else {
+				term = &ast->termStore.query(ast->termStore.query(name));
+			}
+
+			for(auto rule: def.getRules()){
+				rule->addTerm(term, 0);
+			}
 
 			def.addRule(new Rule());
-			def.setLHS(term->getName());
+			def.setLHS(term);
+			ast->addRules(def.getRules());
 
 			mp[node] = term;
 			break;
 		}
 
-		case 1:
+		case 1:{
 			break;
+		}
 		case 2:{
 			Definition* def = (Definition*)(mp[node->children[0]]);
 			Rule* rule = new Rule();
+			int id = ast->termStore.query(&def->getLHS());
 			
-			Term* term = new Term(Term::NONTERMINAL, def->getLHS());
+			const Term* term;
+			if(id == -1){
+				term = new Term(Term::NONTERMINAL, def->getLHS().getName());
+				ast->termStore.insert(term);
+			} else {
+				term = &ast->termStore.query(id);
+			}
 			rule->addTerm(term);
+			rule->lhs(&ast->termStore.query(ast->termStore.query(ast->startSymbol())));
 
-			ast->addDefinition(ast->startSymbol(), rule);
+			ast->addRule(rule);
 			break;
 		}
 
@@ -395,7 +585,7 @@ Ast* Parser::parse(){
 			return ast;
 		}
 		if(action == N){
-			return {};
+			return nullptr;
 		}
 		shift(tkn, val);
 		lexer.consume();

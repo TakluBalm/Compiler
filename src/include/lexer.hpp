@@ -61,9 +61,6 @@ class Lexer{
 	void advance();
 	void skipWhiteSpace();
 	std::string parseNonTerminal();
-	int parseDigit(int base);
-	long long int parseNumber(int base);
-	char parseChar();
 	std::string parseTerminal();
 };
 

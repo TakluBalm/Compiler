@@ -8,6 +8,49 @@
 
 using namespace std;
 
+int convert(Ast *ast, Token t){
+	string str;
+	switch(t.type){
+	case Type::NON_TERMINAL:
+		str = "nonterminal";
+		break;
+	case Type::TERMINAL:
+		str = "terminal";
+		break;
+	case Type::CBRACE:
+		str = "cbrace";
+		break;
+	case Type::OBRACE:
+		str = "obrace";
+		break;
+	case Type::CBRACKET:
+		str = "cbracket";
+		break;
+	case Type::OBRACKET:
+		str = "obracket";
+		break;
+	case Type::CPAREN:
+		str = "cparen";
+		break;
+	case Type::OPAREN:
+		str = "oparen";
+		break;
+	case Type::COLON:
+		str = "colon";
+		break;
+	case Type::SEMI_COLON:
+		str = "semi";
+		break;
+	case Type::END:
+		str = "$";
+		break;
+	case Type::OR:
+		str = "or";
+		break;
+	}
+	return ast->termStore.query(str);
+}
+
 int main(int argc, char** argv){
 	cout << "File: ";
 	string filename; cin >> filename;
@@ -20,7 +63,6 @@ int main(int argc, char** argv){
 	Parser parser(lex);
 	Ast* ast = parser.parse();
 	if(ast != nullptr){
-		cout << "Successfully parsed\n";
 		map<string, bool> mp;
 		string start = ast->startSymbol();
 		queue<string> q;
@@ -29,7 +71,7 @@ int main(int argc, char** argv){
 		while(!q.empty()){
 			auto top = q.front(); q.pop();
 			mp[top] = true;
-			const vector<Rule*>& rules = ast->getDefinition(top);
+			const vector<const Rule*>& rules = ast->getDefinition(top);
 			cout << top << ":\n";
 			for(auto rule: rules){
 				vector<const Term*> terms = rule->getTerms();
@@ -37,6 +79,7 @@ int main(int argc, char** argv){
 					allTerms.insert(term);
 					string sym = term->getName();
 					if(term->type() == term->NONTERMINAL && !mp[sym]){
+						mp[sym] = true;
 						q.push(sym);
 					}
 				}
@@ -52,7 +95,12 @@ int main(int argc, char** argv){
 
 		StateGenerator sg(*ast);
 
-		sg.generateStateTable();
+		if(!sg.generateStateTable()){
+			cout << "Not an LALR Grammar\n";
+			return 1;
+		}
+		
+		
 		auto& table = sg.table();
 
 		int maxVal = 0;
@@ -105,5 +153,49 @@ int main(int argc, char** argv){
 			cout << endl;
 		}
 
+		stack<int> stk;
+		stk.push(0);
+		fseek(file, 0, SEEK_SET);
+		while(true){
+			Token tkn = lex.peek();
+			int id = convert(ast, tkn);
+			int state = stk.top();
+			Action action = table[state][id];
+			if(action.type == Action::REDUCE) {
+				const Rule &rule = ast->ruleStore.query(action.val);
+				for(int i = 0; i < rule.getTerms().size(); i++){
+					stk.pop();
+					stk.pop();
+				}
+				const Term *lhs = rule.lhs();
+				if(lhs->getName() == ast->startSymbol()){
+					cout << "Successfully parsed\n";
+					break;
+				}
+
+				int st = stk.top();
+				id = ast->termStore.query(lhs);
+				stk.push(id);
+				Action a = table[st][id];
+
+				if(a.type != Action::GOTO){
+					cout << "Invalid Syntax" << endl;
+					break;
+				}
+
+				stk.push(a.val);
+				continue;
+			}
+			if(action.type == Action::REJECT){
+				cout << "Invalid Syntax" << endl;
+				break;
+			}
+			stk.push(id);
+			stk.push(action.val);
+			lex.consume();
+		}
+	}
+	else {
+		cout << "Syntax error in " << filename << endl;
 	}
 }

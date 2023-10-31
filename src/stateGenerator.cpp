@@ -8,19 +8,44 @@ using namespace std;
 
 /******** State ************/
 
+class FollowSet {
+	vector<FollowSet *> parents;
+	std::set<int> own;
+
+	public:
+
+	void insert(int termId) {
+		own.insert(termId);
+	}
+
+	void addParent(FollowSet *p) {
+		parents.push_back(p);
+	}
+
+	set<int> ids() const {
+		std::set<int> s = own;
+		for(auto parent : parents) {
+			for(int id : parent->ids()) {
+				s.insert(id);
+			}
+		}
+		return s;
+	}
+};
+
 static string& EMPTY = *(new string(""));
 #define EPSILON_STR "ε"
 
 class StateComponent {
 	friend class State;
 
-	set<string> &_follow;
+	FollowSet * const _follow;
 	const Rule &_rule;
 	int _idx;
 
 	public:
-	StateComponent(const Rule &r) : _rule(r), _idx(0), _follow(*(new set<string>())) {}
-	StateComponent(const Rule& r, set<string> &followSet) : _rule(r), _idx(0), _follow(*(new set<string>(followSet))) {}
+	StateComponent(const Rule &r) : _rule(r), _idx(0), _follow(new FollowSet()) {}
+	StateComponent(const Rule& r, FollowSet *followSet) : _rule(r), _idx(0), _follow(new FollowSet(*followSet)) {}
 	
 	string toString() const {
 		return "[" + to_string(_rule.id()) + "," + to_string(_idx) + "]";
@@ -30,11 +55,11 @@ class StateComponent {
 		return _rule;
 	}
 	
-	set<string> &followSet() const {
-		return _follow;
+	FollowSet &followSet() const {
+		return *_follow;
 	}
 
-	int idx(){
+	int idx() const {
 		return _idx;
 	}
 };
@@ -65,6 +90,39 @@ class State {
 		id += sc.toString();
 	}
 
+	string scToString(const StateComponent &sc) const {
+		string r;
+		r += sc.rule().lhs()->getName() + " ->";
+		int i = 0;
+		while(true){
+			auto t = sc.rule().getTerm(i);
+			if(t == nullptr)	break;
+
+			if(i == sc.idx()){
+				r += ".";
+			}else{
+				r += " ";
+			}
+
+			r += t->getName();
+			i++;
+		}
+
+		if(sc.rule().getTerms().size() == sc.idx()){
+			r += ".";
+			if(sc.idx() == 0) {
+				r += EPSILON_STR;
+			}
+		}
+
+		r += " [";
+		for(auto str: sc.followSet().ids()){
+			r += to_string(str) + ",";
+		}
+		r += "\b]\n";
+		return r;
+	}
+
 	public:
 	static State createStartState(const StateComponent& sc){
 		State s;
@@ -79,8 +137,8 @@ class State {
 	bool addUniqueComponent(const StateComponent& sc){
 		const Term* cur = sc.rule().getTerm(sc._idx);
 		if(cur == nullptr && reducible.find(sc) != reducible.end()){
-			set<string> &f = reducible.find(sc)->followSet();
-			for(auto& str: sc.followSet()){
+			FollowSet &f = reducible.find(sc)->followSet();
+			for(auto& str: sc.followSet().ids()){
 				f.insert(str);
 			}
 			return false;
@@ -92,8 +150,8 @@ class State {
 		}
 		auto itr1 = expandable.find(cur->getName());
 		if(itr1  != expandable.end() && itr1->second.find(sc) != itr1->second.end()){
-			set<string> &f = itr1->second.find(sc)->followSet();
-			for(auto& str: sc.followSet()){
+			FollowSet &f = itr1->second.find(sc)->followSet();
+			for(auto& str: sc.followSet().ids()){
 				f.insert(str);
 			}
 			return false;
@@ -122,6 +180,34 @@ class State {
 
 	queue<StateComponent> &processingQueue(){
 		return unprocessed;
+	}
+
+	string toString() const {
+		string r;
+		for(auto p : expandable) {
+			for(auto sc : p.second) {
+				r += scToString(sc);
+			}
+		}
+	
+		for(auto sc: reducible) {
+			r += scToString(sc);
+		}
+
+		return r;
+	}
+
+	void update(State &s) {
+		if(s.strId() == strId()){
+			for(auto p: s.expandable) {
+				for(auto sc: p.second) {
+					addUniqueComponent(sc);
+				}
+			}
+			for(auto sc: s.reducible) {
+				addUniqueComponent(sc);
+			}
+		}
 	}
 };
 
@@ -155,47 +241,6 @@ int StateGenerator::StateStore::size(){
 	return states.size();
 }
 
-/******* TermStore ********/
-
-bool StateGenerator::TermStore::contains(const Term* term) const {
-	return contains(term->getName());
-}
-
-bool StateGenerator::TermStore::contains(const string& name) const {
-	return ids.find(name) != ids.end();
-}
-
-int StateGenerator::TermStore::query(const Term* term) const {
-	return query(term->getName());
-}
-
-int StateGenerator::TermStore::query(const string& name) const {
-	if(contains(name)){
-		return ids.find(name)->second;
-	}
-	return -1;
-}
-
-const Term& StateGenerator::TermStore::query(int id) const {
-	return *(terms[id]);
-}
-
-int StateGenerator::TermStore::insert(const Term* term){
-	if(!contains(term)){
-		ids[term->getName()] = ids.size();
-		terms.push_back(term);
-		return ids.size()-1;
-	}
-	return ids[term->getName()];
-}
-
-bool StateGenerator::TermStore::contains(int id) const {
-	return id < terms.size();
-}
-
-int StateGenerator::TermStore::size() const {
-	return terms.size();
-}
 
 
 /******** StateGenerator *********/
@@ -213,22 +258,20 @@ State& StateGenerator::computeClosure(State& kernel){
 			continue;
 		}
 
-		set<string> * followSet = new set<string>();
+		FollowSet *followSet = new FollowSet();
 		int offset = 1;
 		while(true){
 			if(sc.rule().getTerm(sc.idx()+offset) == nullptr){
-				for(auto& str: sc.followSet()){
-					followSet->insert(str);
-				}
+				followSet->addParent(&sc.followSet());
 				break;
 			} else {
 				bool epsilon = false;
-				for(auto& str: firstOf(termStore.query(sc.rule().getTerm(sc.idx()+offset)))){
+				for(auto& str: firstOf(_ast.termStore.query(sc.rule().getTerm(sc.idx()+offset)))){
 					if(str == EPSILON_STR){
 						epsilon = true;
 						continue;
 					}
-					followSet->insert(str);
+					followSet->insert(_ast.termStore.query(str));
 				}
 				if(!epsilon)	break;
 			}
@@ -236,7 +279,7 @@ State& StateGenerator::computeClosure(State& kernel){
 		}
 
 		for(auto rule: _ast.getDefinition(sc.rule().getTerm(sc.idx())->getName())){
-			StateComponent scc(*rule, *followSet);
+			StateComponent scc(*rule, followSet);
 			kernel.addUniqueComponent(scc);
 		}
 
@@ -247,24 +290,24 @@ State& StateGenerator::computeClosure(State& kernel){
 	return kernel;
 }
 
-void StateGenerator::generateStateTable(){
+bool StateGenerator::generateStateTable(){
 	//	Bootstrap
-	fillUpTermStore();
-
-	for(int i = 0; i < termStore.size(); i++){
-		cout << i << " " << termStore.query(i).getName() << endl;
+	for(int i = 0; i < _ast.termStore.size(); i++){
+		cout << i << " " << _ast.termStore.query(i).getName() << endl;
 	}
 	cout << endl << endl;
-	for(int i = 0; i < termStore.size(); i++){
-		cout << termStore.query(i).getName() << " [";
+
+	for(int i = 0; i < _ast.termStore.size(); i++){
+		cout << _ast.termStore.query(i).getName() << " [";
 		for(auto& str: firstOf(i)){
 			cout << str << ",";
 		}
-		cout << "]\n";
+		cout << "\b]\n";
 	}
+	cout << endl << endl;
 
 	StateComponent sc(*_ast.getDefinition(_ast.startSymbol())[0]);
-	sc.followSet().insert("$");
+	sc.followSet().insert(_ast.termStore.query("$"));
 	State s = State::createStartState(sc);
 
 	queue<int> q;
@@ -281,8 +324,8 @@ void StateGenerator::generateStateTable(){
 				
 		computeClosure(state);
 
-		_table[from].resize(termStore.size());
-		for(int i = 0; i < termStore.size(); i++){
+		_table[from].resize(_ast.termStore.size());
+		for(int i = 0; i < _ast.termStore.size(); i++){
 			_table[from][i].type = Action::REJECT;
 			_table[from][i].val = -1;
 		}
@@ -293,12 +336,16 @@ void StateGenerator::generateStateTable(){
 
 			if(!store.contains(kernel)){
 				q.push(store.addState(kernel));
+			} else {
+				computeClosure(kernel);
+				State &s = store.referenceTo(store.getId(kernel));
+				s.update(kernel);
 			}
 			int to = store.getId(kernel);
 			maxID = max(to, maxID);
 
-			int termID = termStore.query(step);
-			auto& term = termStore.query(termID);
+			int termID = _ast.termStore.query(step);
+			auto& term = _ast.termStore.query(termID);
 			if(term.type() == Term::NONTERMINAL){
 				_table[from][termID].type = Action::GOTO;
 			} else {
@@ -306,40 +353,29 @@ void StateGenerator::generateStateTable(){
 			}
 			_table[from][termID].val = to;
 		}
+	}
 
-		for(auto& sc : state.reduces()){
+	for(int i = 0; i < store.size(); i++) {
+		State &s = store.referenceTo(i);
+		int from = i;
+
+		cout << "State " << from << ":\n";
+		cout << s.toString() << endl;
+
+		for(auto& sc : s.reduces()){
 			int ruleId = sc.rule().id();
-			for(auto& str: sc.followSet()){
-				int on = termStore.query(str);
+			for(auto& on: sc.followSet().ids()){
+				if(_table[from][on].type != Action::REJECT){
+					return false;
+				}
 				_table[from][on].type = Action::REDUCE;
 				_table[from][on].val = ruleId;
 			}
 		}
 	}
 
-}
+	return true;
 
-void StateGenerator::fillUpTermStore(){
-	static Term* END = new Term(Term::TERMINAL, "$");
-	if(!termStoreFilled){
-		termStore.insert(END);
-		queue<string> q;
-		q.push(_ast.startSymbol());
-
-		while(!q.empty()){
-			const vector<Rule*> rules = _ast.getDefinition(q.front());
-			q.pop();
-			for(auto rule: rules){
-				for(auto term : rule->getTerms()){
-					if(!termStore.contains(term)){
-						termStore.insert(term);
-						q.push(term->getName());
-					}
-				}
-			}
-		}
-		termStoreFilled = true;
-	}
 }
 
 #define UNDER_PROCESS 1
@@ -350,9 +386,8 @@ const set<string> &StateGenerator::firstOf(int id){
 	static vector<set<string>> firsts;
 	static vector<int> calculated;
 	if(firsts.size() == 0){
-		fillUpTermStore();
-		firsts.resize(termStore.size(), set<string>());
-		calculated.resize(termStore.size(), NOT_PROCESSED);
+		firsts.resize(_ast.termStore.size(), set<string>());
+		calculated.resize(_ast.termStore.size(), NOT_PROCESSED);
 	}
 
 	if(calculated[id] == PROCESSED){
@@ -361,7 +396,7 @@ const set<string> &StateGenerator::firstOf(int id){
 	calculated[id] = UNDER_PROCESS;
 	firsts[id].clear();
 
-	const Term &term = termStore.query(id);
+	const Term &term = _ast.termStore.query(id);
 	if(term.type() == Term::TERMINAL){
 		firsts[id].insert(term.getName());
 		calculated[id] = PROCESSED;
@@ -378,7 +413,7 @@ const set<string> &StateGenerator::firstOf(int id){
 		}
 		for(auto term : rule->getTerms()){
 			epsilon2 = true;
-			int termId = termStore.query(term);
+			int termId = _ast.termStore.query(term);
 			if(termId != id){
 				if(calculated[termId] == UNDER_PROCESS){
 					processed = false;
