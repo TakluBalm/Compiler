@@ -5,6 +5,7 @@
 #include <set>
 #include <string>
 #include "parser.hpp"
+#include <store.hpp>
 
 class State ;
 
@@ -25,7 +26,7 @@ class StateGenerator {
 
 	class StateStore {
 		std::map<std::string, int> mp;
-		std::map<int, State*> states;
+		std::vector<State*> states;
 
 		public:
 		int addState(State& state);
@@ -33,6 +34,7 @@ class StateGenerator {
 		int getId(State& state);
 		int size();
 		State& referenceTo(int id);
+		void reset();
 	};
 
 	private:

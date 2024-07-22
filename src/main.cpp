@@ -52,9 +52,18 @@ int convert(Ast *ast, Token t){
 }
 
 int main(int argc, char** argv){
-	cout << "File: ";
-	string filename; cin >> filename;
+	string filename;
+	if (argc == 1) {
+		cout << "File: ";
+		cin >> filename;
+	} else {
+		filename = string(argv[1]);
+	}
+
+	cout << "Opening " << filename << "...\n";
+
 	FILE* file = fopen(filename.c_str(), "r");
+	
 	if(file == NULL){
 		cout << "File could not be opened\n";
 		return 1;

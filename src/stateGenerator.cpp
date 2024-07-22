@@ -5,6 +5,7 @@ using namespace std;
 #include <set>
 #include <iostream>
 #include <climits>
+#include <store.hpp>
 
 /******** State ************/
 
@@ -44,8 +45,8 @@ class StateComponent {
 	int _idx;
 
 	public:
-	StateComponent(const Rule &r) : _rule(r), _idx(0), _follow(new FollowSet()) {}
-	StateComponent(const Rule& r, FollowSet *followSet) : _rule(r), _idx(0), _follow(new FollowSet(*followSet)) {}
+	StateComponent(const Rule &r) : _rule(r), _idx(0), _follow(&Store<FollowSet>::newInstance()) {}
+	StateComponent(const Rule& r, FollowSet *followSet) : _rule(r), _idx(0), _follow(&Store<FollowSet>::newInstance(*followSet)) {}
 	
 	string toString() const {
 		return "[" + to_string(_rule.id()) + "," + to_string(_idx) + "]";
@@ -80,7 +81,7 @@ class State {
 	State(){}
 
 	void addKernelComponent(const StateComponent& sc){
-		const Term* cur = sc.rule().getTerm(sc._idx);
+		const Term* cur = sc.rule().getTerm(sc.idx());
 		if(cur == nullptr){
 			reducible.insert(sc);
 		}else{
@@ -119,7 +120,7 @@ class State {
 		for(auto str: sc.followSet().ids()){
 			r += to_string(str) + ",";
 		}
-		r += "\b]\n";
+		r += "]\n";
 		return r;
 	}
 
@@ -135,7 +136,7 @@ class State {
 	}
 
 	bool addUniqueComponent(const StateComponent& sc){
-		const Term* cur = sc.rule().getTerm(sc._idx);
+		const Term* cur = sc.rule().getTerm(sc.idx());
 		if(cur == nullptr && reducible.find(sc) != reducible.end()){
 			FollowSet &f = reducible.find(sc)->followSet();
 			for(auto& str: sc.followSet().ids()){
@@ -209,6 +210,7 @@ class State {
 			}
 		}
 	}
+
 };
 
 
@@ -217,7 +219,7 @@ class State {
 int StateGenerator::StateStore::addState(State& state){
 	const string& str = state.strId();
 	if(!contains(state)){
-		states[mp.size()] = new State(state);
+		states.push_back(&Store<State>::newInstance(state));
 		return mp[str] = mp.size();
 	}
 	return mp[str];
@@ -241,6 +243,11 @@ int StateGenerator::StateStore::size(){
 	return states.size();
 }
 
+void StateGenerator::StateStore::reset(){
+	mp.clear();
+	states.clear();
+	Store<State>::reset();
+}
 
 
 /******** StateGenerator *********/
@@ -258,7 +265,7 @@ State& StateGenerator::computeClosure(State& kernel){
 			continue;
 		}
 
-		FollowSet *followSet = new FollowSet();
+		FollowSet *followSet = &Store<FollowSet>::newInstance();
 		int offset = 1;
 		while(true){
 			if(sc.rule().getTerm(sc.idx()+offset) == nullptr){
@@ -284,7 +291,6 @@ State& StateGenerator::computeClosure(State& kernel){
 		}
 
 		q.pop();
-		delete followSet;
 	}
 
 	return kernel;
@@ -302,7 +308,7 @@ bool StateGenerator::generateStateTable(){
 		for(auto& str: firstOf(i)){
 			cout << str << ",";
 		}
-		cout << "\b]\n";
+		cout << "]\n";
 	}
 	cout << endl << endl;
 
@@ -373,6 +379,13 @@ bool StateGenerator::generateStateTable(){
 			}
 		}
 	}
+
+	store.reset();
+	cout << "Step -1\n";
+	Store<StateComponent>::reset();
+	cout << "Step -2\n";
+	Store<FollowSet>::reset();
+	cout << "Step -3\n";
 
 	return true;
 
